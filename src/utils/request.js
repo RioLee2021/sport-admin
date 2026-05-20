@@ -16,6 +16,26 @@ service.interceptors.request.use(config => {
 
 service.interceptors.response.use(
   response => {
+    // 🔑 核心修复：文件下载请求直接放行，不解析 JSON
+    if (response.config.responseType === 'blob') {
+      // 兼容后端异常时返回的 JSON 错误信息（被包装成 blob）
+      if (response.data.type === 'application/json') {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => {
+            try {
+              const errData = JSON.parse(reader.result)
+              reject(new Error(errData.message || errData.msg || '下载失败'))
+            } catch {
+              reject(new Error('下载失败'))
+            }
+          }
+          reader.readAsText(response.data)
+        })
+      }
+      return response // ✅ 正常文件流，直接返回完整 response 对象
+    }
+
     const res = response.data
     // 🔥 拦截 code=1000 登录失效
     if (res.code === '1000' || res.code === 1000) {

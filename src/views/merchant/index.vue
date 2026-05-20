@@ -60,7 +60,7 @@
                 v-model="queryParams.defaultFlag"
                 placeholder="请选择"
                 clearable
-                style="width: 100%"
+                style="width: 60px"
               >
                 <el-option label="是" :value="true" />
                 <el-option label="否" :value="false" />

@@ -135,8 +135,8 @@ const handleLogout = async () => {
   .el-sub-menu__title {
     background-color: transparent !important;
     color: #bfcbd9 !important;
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: bold;
+    font-size: 16px;
     height: 48px;
     line-height: 48px;
     border-radius: 6px;
