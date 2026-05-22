@@ -141,6 +141,8 @@
         <el-table-column label="观看人数" prop="viewNum" width="100" align="center" />
         <el-table-column label="源数量" prop="sourceCnt" width="90" align="center" />
         <el-table-column label="聊天数" prop="chatCnt" width="90" align="center" />
+        <!-- ✅ 新增：聊天人数列 -->
+        <el-table-column label="聊天人数" prop="chatMemberCnt" width="100" align="center" />
 
         <el-table-column label="创建时间" prop="createAt" width="180" align="center">
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
@@ -149,11 +151,11 @@
           <template #default="{ row }">{{ $formatDateTime(row.updateAt) }}</template>
         </el-table-column>
 
-        <el-table-column label="操作" width="240" align="center" fixed="right">
+        <el-table-column label="操作" width="300" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="info" link size="small" @click="handleViewChat(row)">聊天记录</el-button>
-            <el-button type="warning" link size="small" @click="handleViewSource(row)">直播源</el-button>
+            <el-button type="info" link size="small" @click="openChatDialog(row)">聊天记录</el-button>
+            <el-button type="warning" link size="small" @click="openSourceDialog(row)">直播源</el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -288,13 +290,174 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 💬 聊天记录弹窗（带查询条件） -->
+    <el-dialog
+      v-model="chatDialogVisible"
+      :title="`聊天记录 - ${currentMatchTitle}`"
+      width="900px"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <!-- 弹窗内查询表单 -->
+      <el-form :inline="true" class="chat-search-form">
+        <el-form-item label="用户">
+          <el-input
+            v-model="chatQueryParams.ownerId"
+            placeholder="请输入用户ID"
+            clearable
+            style="width: 150px"
+            @keyup.enter="fetchChatData"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" size="small" @click="handleChatQuery">查询</el-button>
+          <el-button size="small" @click="resetChatQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <el-table
+        v-loading="chatLoading"
+        :data="chatData"
+        border
+        stripe
+        max-height="400"
+        style="margin-bottom: 12px"
+      >
+        <el-table-column prop="username" label="用户名" width="120" />
+        <el-table-column prop="phoneNumber" label="手机号" width="130" />
+        <el-table-column label="会员类型" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag size="small">{{ getDictLabel('MemberType', row.memberType) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="会员状态" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getMemberStatTag(row.memberStat)" size="small">
+              {{ getDictLabel('MemberStat', row.memberStat) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="content" label="聊天内容" show-overflow-tooltip />
+        <el-table-column label="时间" width="160" align="center">
+          <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
+        </el-table-column>
+      </el-table>
+
+      <el-pagination
+        v-model:current-page="chatPagination.page"
+        v-model:page-size="chatPagination.pageSize"
+        :total="chatPagination.total"
+        layout="total, prev, pager, next"
+        @current-change="fetchChatData"
+        style="justify-content: flex-end"
+      />
+    </el-dialog>
+
+    <!-- 📺 直播源弹窗（带查询条件 + 同步按钮） -->
+    <el-dialog
+      v-model="sourceDialogVisible"
+      :title="`直播源 - ${currentMatchTitle}`"
+      width="800px"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <template #header>
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <span>直播源列表</span>
+          <el-button
+            type="primary"
+            size="small"
+            :loading="syncLoading"
+            :icon="Refresh"
+            @click="handleSyncSource(currentLiveId)"
+          >
+            同步直播源
+          </el-button>
+        </div>
+      </template>
+
+      <!-- 弹窗内查询表单 -->
+      <el-form :inline="true" class="source-search-form">
+        <el-form-item label="状态">
+          <el-select
+            v-model="sourceQueryParams.videoStat"
+            placeholder="请选择"
+            clearable
+            style="width: 120px"
+            @change="fetchSourceData"
+          >
+            <el-option
+              v-for="item in getDictOptions('VideoStat')"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button size="small" @click="resetSourceQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <el-table
+        v-loading="sourceLoading"
+        :data="sourceData"
+        border
+        stripe
+        max-height="400"
+        style="margin-bottom: 12px"
+      >
+        <el-table-column prop="videoUrl" label="视频URL" show-overflow-tooltip>
+          <template #default="{ row }">
+            <el-link
+              :href="row.videoUrl"
+              type="primary"
+              target="_blank"
+              :underline="false"
+              style="max-width: 400px"
+            >
+              {{ row.videoUrl }}
+            </el-link>
+            <el-button
+              link
+              type="primary"
+              size="small"
+              style="margin-left: 8px"
+              @click="copyUrl(row.videoUrl)"
+            >
+              复制
+            </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.videoStat === '1' ? 'success' : 'danger'">
+              {{ getDictLabel('VideoStat', row.videoStat) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="160" align="center">
+          <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
+        </el-table-column>
+      </el-table>
+
+      <el-pagination
+        v-model:current-page="sourcePagination.page"
+        v-model:page-size="sourcePagination.pageSize"
+        :total="sourcePagination.total"
+        layout="total, prev, pager, next"
+        @current-change="fetchSourceData"
+        style="justify-content: flex-end"
+      />
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, CopyDocument } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getDictOptions, getDictLabel } from '@/utils/dict'
 
@@ -317,10 +480,10 @@ const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
 const queryFormRef = ref()
 
 // 📥 下拉数据
-const matchDict = ref([])  // ✅ 赛事字典（按联赛分组）
+const matchDict = ref([])
 const streamerOptions = ref([])
 
-// ✏️ 对话框状态
+// ✏️ 主对话框状态
 const dialogVisible = ref(false)
 const formRef = ref()
 const submitLoading = ref(false)
@@ -337,7 +500,30 @@ const form = reactive({
   viewNum: 0
 })
 
-// 校验规则（根据 AddForm / EditForm 动态生成）
+// 💬 聊天记录弹窗状态
+const chatDialogVisible = ref(false)
+const chatLoading = ref(false)
+const chatData = ref([])
+const chatPagination = reactive({ page: 1, pageSize: 10, total: 0 })
+const chatQueryParams = reactive({
+  liveId: null,
+  ownerId: undefined
+})
+const currentLiveId = ref(null)
+const currentMatchTitle = ref('')
+
+// 📺 直播源弹窗状态
+const sourceDialogVisible = ref(false)
+const sourceLoading = ref(false)
+const sourceData = ref([])
+const sourcePagination = reactive({ page: 1, pageSize: 10, total: 0 })
+const sourceQueryParams = reactive({
+  liveId: null,
+  videoStat: undefined
+})
+const syncLoading = ref(false)
+
+// 校验规则
 const rules = computed(() => {
   const base = {
     liveStat: [{ required: true, message: '请选择直播状态', trigger: 'change' }],
@@ -354,7 +540,7 @@ const rules = computed(() => {
   return base
 })
 
-// 🔍 查询列表
+// 🔍 查询主列表
 const handleQuery = async () => {
   loading.value = true
   try {
@@ -406,7 +592,6 @@ const getStreamerName = (id) => {
 }
 
 const getMatchTitle = (id) => {
-  // 遍历分组字典查找赛事名称
   for (const group of matchDict.value) {
     const item = group.items?.find(m => m.value === id)
     if (item) return item.label
@@ -419,7 +604,12 @@ const getStatTagType = (stat) => {
   return map[stat] || 'info'
 }
 
-// ✏️ 表单操作
+const getMemberStatTag = (stat) => {
+  const map = { '0': 'success', '1': 'warning', '2': 'danger', '3': 'info' }
+  return map[stat] || 'info'
+}
+
+// ✏️ 主表单操作
 const handleAdd = () => {
   isEdit.value = false
   Object.assign(form, {
@@ -437,7 +627,6 @@ const handleEdit = (row) => {
   setTimeout(() => formRef.value?.clearValidate(), 100)
 }
 
-// 💾 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return
   await formRef.value.validate(async (valid) => {
@@ -454,7 +643,6 @@ const handleSubmit = async () => {
           viewNumMin: form.viewNumMin,
           viewNumMax: form.viewNumMax
         }
-
       await request.post(isEdit.value ? '/live/edit.do' : '/live/add.do', payload)
       ElMessage.success(isEdit.value ? '修改成功' : '新增成功')
       dialogVisible.value = false
@@ -467,7 +655,6 @@ const handleSubmit = async () => {
   })
 }
 
-// 🗑️ 删除
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定要删除该直播数据吗？此操作不可恢复！`, '警告', {
     confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
@@ -486,16 +673,118 @@ const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
 
-// 👁️ 查看聊天记录 / 直播源（占位）
-const handleViewChat = (row) => {
-  ElMessage.info(`查看直播 ${row.id} 的聊天记录`)
+// 💬 聊天记录相关
+const openChatDialog = (row) => {
+  currentLiveId.value = row.id
+  currentMatchTitle.value = `ID:${row.id}`
+  chatQueryParams.liveId = row.id
+  chatQueryParams.ownerId = undefined
+  chatPagination.page = 1
+  chatDialogVisible.value = true
+  fetchChatData()
 }
-const handleViewSource = (row) => {
-  ElMessage.info(`查看直播 ${row.id} 的直播源`)
+
+const fetchChatData = async () => {
+  chatLoading.value = true
+  try {
+    const payload = {
+      liveId: chatQueryParams.liveId,
+      ownerId: chatQueryParams.ownerId || undefined,
+      page: chatPagination.page,
+      pageSize: chatPagination.pageSize
+    }
+    const res = await request.post('/live/pageChatData.do', payload)
+    if (res.data) {
+      chatData.value = res.data.list || []
+      chatPagination.total = res.data.total || 0
+    }
+  } catch (error) {
+    ElMessage.error('获取聊天记录失败：' + (error.message || '未知错误'))
+  } finally {
+    chatLoading.value = false
+  }
+}
+
+const handleChatQuery = () => {
+  chatPagination.page = 1
+  fetchChatData()
+}
+
+const resetChatQuery = () => {
+  chatQueryParams.ownerId = undefined
+  handleChatQuery()
+}
+
+// 📺 直播源相关
+const openSourceDialog = (row) => {
+  currentLiveId.value = row.id
+  currentMatchTitle.value = `ID:${row.id}`
+  sourceQueryParams.liveId = row.id
+  sourceQueryParams.videoStat = undefined
+  sourcePagination.page = 1
+  sourceDialogVisible.value = true
+  fetchSourceData()
+}
+
+const fetchSourceData = async () => {
+  sourceLoading.value = true
+  try {
+    const payload = {
+      liveId: sourceQueryParams.liveId,
+      videoStat: sourceQueryParams.videoStat || undefined,
+      page: sourcePagination.page,
+      pageSize: sourcePagination.pageSize
+    }
+    const res = await request.post('/live/pageVideoSource.do', payload)
+    if (res.data) {
+      sourceData.value = res.data.list || []
+      sourcePagination.total = res.data.total || 0
+    }
+  } catch (error) {
+    ElMessage.error('获取直播源失败：' + (error.message || '未知错误'))
+  } finally {
+    sourceLoading.value = false
+  }
+}
+
+const resetSourceQuery = () => {
+  sourceQueryParams.videoStat = undefined
+  sourcePagination.page = 1
+  fetchSourceData()
+}
+
+// 🔄 同步直播源
+const handleSyncSource = async (liveId) => {
+  try {
+    await ElMessageBox.confirm('确定要同步该直播的源数据吗？', '提示', { type: 'warning' })
+    syncLoading.value = true
+    await request.post('/live/syncVideoSource.do', { id: liveId })
+    ElMessage.success('同步成功')
+    // 如果在弹窗内，刷新源列表
+    if (sourceDialogVisible.value) fetchSourceData()
+    // 刷新主列表的源数量
+    handleQuery()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('同步失败：' + (error.message || '未知错误'))
+    }
+  } finally {
+    syncLoading.value = false
+  }
+}
+
+// 📋 复制链接
+const copyUrl = async (url) => {
+  try {
+    await navigator.clipboard.writeText(url)
+    ElMessage.success('链接已复制')
+  } catch {
+    ElMessage.error('复制失败')
+  }
 }
 
 onMounted(() => {
-  fetchMatchDict()  // ✅ 加载分组赛事字典
+  fetchMatchDict()
   fetchStreamers()
   handleQuery()
 })
@@ -512,4 +801,14 @@ onMounted(() => {
 }
 .search-buttons { display: flex; gap: 10px; justify-content: flex-end; width: 100%; }
 .dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* 弹窗内查询表单样式 */
+:deep(.el-dialog__body) {
+  padding: 12px 20px;
+  .chat-search-form, .source-search-form {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #ebeef5;
+  }
+}
 </style>
