@@ -1,7 +1,15 @@
+// src/router/index.js
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
-const constantRoutes = [
+// 📦 静态路由（无需动态注册）
+export const constantRoutes = [
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/login/index.vue'),
+    meta: { hidden: true }
+  },
   {
     path: '/',
     component: () => import('@/layout/index.vue'),
@@ -16,16 +24,7 @@ const constantRoutes = [
       }
     ]
   },
-  {
-    path: '/login',
-    component: () => import('@/views/login/index.vue'),
-    meta: { hidden: true }
-  },
-  {
-    path: '/:pathMatch(.*)*',
-    redirect: '/login',
-    meta: { hidden: true }
-  }
+  { path: '/:pathMatch(.*)*', redirect: '/login', meta: { hidden: true } }
 ]
 
 const router = createRouter({
@@ -33,37 +32,52 @@ const router = createRouter({
   routes: constantRoutes
 })
 
-// ✅ 修复：完全移除 next()，改用 return
+// 🛡️ 修复后的路由守卫
 router.beforeEach(async (to) => {
-  console.log('📋 当前路由表:', router.getRoutes().map(r => r.path))
   const token = localStorage.getItem('token')
-
-  // 1. 访问登录页，直接放行
-  if (to.path === '/login') return true
-
-  // 2. 无 Token，踢回登录
-  if (!token) return '/login'
-
-  // 3. 已登录，但 Store 未初始化（通常是刷新页面触发）
   const store = useUserStore()
-  if (!store.userInfo) {
-    console.log('🚀 [Guard] 触发 fetchInitData...')
+
+  console.log('🛡️ 守卫触发:', to.path, 'Token:', !!token, 'UserInfo:', !!store.userInfo)
+
+  // 1. 无 Token -> 踢回登录
+  if (!token) {
+    return to.path === '/login' ? true : `/login?redirect=${to.fullPath}`
+  }
+
+  // 2. 🔥 关键：有 Token 却在登录页 -> 踢去首页（触发初始化）
+  if (to.path === '/login') {
+    console.log('🔄 检测到登录态，自动跳转至首页...')
+    return { path: '/', replace: true }
+  }
+
+  // 3. 已登录但 Store 未初始化（通常是 F5 刷新）
+  if (!store.userInfo && !store._initializing) {
+    console.log('🚀 触发 fetchInitData 重建路由...')
     try {
+      store._initializing = true
       await store.fetchInitData()
-      console.log('✅ [Guard] 初始化成功')
-      // 🔑 关键：Vue Router 4 注册路由是异步的，需等微任务完成再重定向
+
+      // 🔑 等待微任务完成，确保 addRoute 内部 matcher 已更新
       await new Promise(resolve => setTimeout(resolve, 0))
 
-      return { ...to, replace: true } // 重新进入当前路由
+      // 重新进入当前路由
+      return { ...to, replace: true }
     } catch (err) {
-      console.error('初始化失败，清除登录状态', err)
+      console.error('❌ 初始化失败:', err)
       store.clearState()
-      return '/login'
+      return `/login?redirect=${to.fullPath}`
+    } finally {
+      delete store._initializing
     }
   }
 
-  // 4. 正常放行
-  console.log('✅ [Guard] 正常放行')
+  // 4. 防死循环：如果正在初始化中，等待并重新进入
+  if (!store.userInfo) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+    return { ...to, replace: true }
+  }
+
+  // 5. 正常放行
   return true
 })
 
