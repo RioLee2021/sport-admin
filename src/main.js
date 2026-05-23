@@ -25,10 +25,10 @@ app.config.globalProperties.$formatTimestamp = formatTimestamp
 app.mount('#app')
 
 // 🔧 开发环境：自动验证组件映射
-if (import.meta.env.DEV) {
+/*if (import.meta.env.DEV) {
   setTimeout(async () => {
     try {
-      const views = import.meta.glob('@/views/**/index.vue')
+      const views = import.meta.glob('@/views/!**!/index.vue')
       const hasMerchant = '@/views/merchant/index.vue' in views
 
       console.group('🔍 [Auto-Check] 组件映射验证')
@@ -42,4 +42,4 @@ if (import.meta.env.DEV) {
       console.error('❌ 验证失败:', e)
     }
   }, 2000)
-}
+}*/

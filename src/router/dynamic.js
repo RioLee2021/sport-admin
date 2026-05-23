@@ -16,7 +16,11 @@ if (import.meta.env.DEV) {
 
 let addedRoutes = []
 
+let _routesGenerated = false  // ✅ 全局锁
+
 export function generateRoutes(menuTree) {
+  if (_routesGenerated) return  // ✅ 已生成则跳过
+  _routesGenerated = true       // ✅ 上锁
   console.log('🔧 generateRoutes 被调用，菜单数:', menuTree?.length)
 
   addedRoutes = transformMenu(menuTree)
@@ -37,13 +41,14 @@ export function generateRoutes(menuTree) {
 }
 
 export function resetRoutes() {
-  addedRoutes.forEach(route => {
+  _routesGenerated = false  // 登出时重置
+  /*addedRoutes.forEach(route => {
     if (route.name && router.hasRoute(route.name)) {
       router.removeRoute(route.name)
       console.log(`🗑️ 移除路由: ${route.name}`)
     }
   })
-  addedRoutes = []
+  addedRoutes = []*/
 }
 
 function generateRouteName(menuPath) {

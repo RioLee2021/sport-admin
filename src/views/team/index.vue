@@ -251,7 +251,7 @@ const rules = {
 /** 📥 获取联赛下拉数据 */
 const fetchLeagueOptions = async () => {
   try {
-    const res = await request.post('/team/leagueOptions.do', {})
+    const res = await request.post('/pub/leagueOptions.do', {})
     // 兼容 value 为 object 的情况，统一转为字符串
     leagueOptions.value = (res.data || []).map(item => ({
       label: item.label,
