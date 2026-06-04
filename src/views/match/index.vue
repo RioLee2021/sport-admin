@@ -63,8 +63,8 @@
       <el-table v-loading="loading" :data="tableData" border stripe style="width: 100%">
         <el-table-column type="index" label="序号" width="60" align="center" />
 
-        <el-table-column label="主队" prop="homeTeamCode" width="120" align="center">
-          <template #default="{ row }">{{ getTeamName(row.homeTeamCode) }}</template>
+        <el-table-column label="主队" prop="homeTeamName" width="120" align="center">
+          <template #default="{ row }">{{ row.homeTeamName }}</template>
         </el-table-column>
 
         <el-table-column label="比分" width="100" align="center">
@@ -74,7 +74,7 @@
         </el-table-column>
 
         <el-table-column label="客队" prop="awayTeamCode" width="120" align="center">
-          <template #default="{ row }">{{ getTeamName(row.awayTeamCode) }}</template>
+          <template #default="{ row }">{{ row.awayTeamName }}</template>
         </el-table-column>
 
         <el-table-column label="所属联赛" prop="leagueCode" width="120" align="center">
