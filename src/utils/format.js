@@ -78,3 +78,6 @@ export const formatRelativeTime = (timestamp) => {
 
   return formatDateTime(timestamp)
 }
+
+// 将日期选择器的值转为 10 位时间戳
+export const toTimestamp = (dateStr) => dateStr ? Math.floor(new Date(dateStr).getTime() / 1000) : undefined

@@ -87,6 +87,22 @@
           </template>
         </el-table-column>
 
+        <!-- ✅ 新增：竞猜相关字段 -->
+        <el-table-column label="竞猜" prop="betFlag" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.betFlag ? 'success' : 'info'" size="small">{{ row.betFlag ? '开启' : '关闭' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="竞猜人数" prop="handicap" width="100" align="center">
+          <template #default="{ row }">{{ row.guessCnt ?? '-' }}</template>
+        </el-table-column>
+        <el-table-column label="让球" prop="handicap" width="90" align="center">
+          <template #default="{ row }">{{ row.handicap ?? '-' }}</template>
+        </el-table-column>
+        <el-table-column label="中奖金额" prop="winCoins" width="100" align="center">
+          <template #default="{ row }">{{ row.winCoins ?? '-' }}</template>
+        </el-table-column>
+
         <el-table-column label="热门" prop="hotFlag" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="row.hotFlag ? 'warning' : 'info'">{{ row.hotFlag ? '是' : '否' }}</el-tag>
@@ -97,18 +113,25 @@
           <template #default="{ row }">{{ $formatDateTime(row.startTime) }}</template>
         </el-table-column>
 
-        <el-table-column label="结束" prop="endTime" width="160" align="center">
-          <template #default="{ row }">{{ $formatDateTime(row.endTime) }}</template>
-        </el-table-column>
-
         <el-table-column label="排序号" prop="sortNum" width="90" align="center" />
         <el-table-column label="直播数" prop="liveCnt" width="90" align="center" />
 
-        <el-table-column label="操作" width="180" align="center" fixed="right">
+        <el-table-column label="操作" width="240" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-            <el-button type="success" link size="small" :icon="VideoCamera" @click="openBatchLiveDialog(row)">生成直播</el-button>
+            <el-button type="success" link size="small" :icon="VideoCamera" @click="openBatchLiveDialog(row)">直播</el-button>
+            <!-- ✅ 新增：设置竞猜按钮（仅未开始比赛显示） -->
+            <el-button
+              v-if="row.stat === 1"
+              type="warning"
+              link
+              size="small"
+              :icon="Trophy"
+              @click="openGuessDialog(row)"
+            >
+              竞猜
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -265,13 +288,61 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 🏆 设置竞猜对话框 (新增) -->
+    <el-dialog
+      v-model="guessDialogVisible"
+      title="设置竞猜配置"
+      width="500px"
+      :close-on-click-modal="false"
+      @close="handleGuessDialogClose"
+    >
+      <el-form ref="guessFormRef" :model="guessForm" :rules="guessRules" label-width="110px" label-position="right">
+        <el-form-item label="比赛" prop="id">
+          <el-input v-model="guessForm.matchTitle" disabled placeholder="主队 vs 客队" />
+        </el-form-item>
+
+        <el-form-item label="是否竞猜" prop="betFlag">
+          <el-switch v-model="guessForm.betFlag" active-text="开启" inactive-text="关闭" />
+        </el-form-item>
+
+        <el-form-item label="让球" prop="handicap">
+          <el-input
+            v-model="guessForm.handicap"
+            placeholder="整数或.5结尾的小数，如 0, -1.5, 2.5"
+            clearable
+          >
+            <template #append>球</template>
+          </el-input>
+          <div class="form-tip">仅支持整数或 .5 结尾的小数</div>
+        </el-form-item>
+
+        <el-form-item label="中奖金额" prop="winCoins">
+          <el-input-number
+            v-model="guessForm.winCoins"
+            :min="0"
+            :precision="0"
+            controls-position="right"
+            style="width: 100%"
+            placeholder="请输入中奖金额"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="guessDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="guessLoading" @click="handleGuessSubmit">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, VideoCamera } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, VideoCamera, Trophy } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getDictOptions, getDictLabel } from '@/utils/dict'
 
@@ -295,13 +366,10 @@ const queryFormRef = ref()
 
 // 📥 下拉数据
 const leagueOptions = ref([])
-const teamOptionsMap = ref({}) // { leagueCode: [teams] }
+const teamOptionsMap = ref({})
 const streamerOptions = ref([])
 
-// 当前可用的球队列表
-const currentTeamOptions = computed(() => {
-  return teamOptionsMap.value[form.leagueCode] || []
-})
+const currentTeamOptions = computed(() => teamOptionsMap.value[form.leagueCode] || [])
 
 // ✏️ 对话框状态
 const dialogVisible = ref(false)
@@ -310,20 +378,10 @@ const submitLoading = ref(false)
 const isEdit = ref(false)
 
 const form = reactive({
-  id: null,
-  leagueCode: '',
-  homeTeamCode: '',
-  awayTeamCode: '',
-  homeScore: 0,
-  awayScore: 0,
-  stat: '0',
-  hotFlag: false,
-  sortNum: 0,
-  startTime: '',
-  endTime: ''
+  id: null, leagueCode: '', homeTeamCode: '', awayTeamCode: '',
+  homeScore: 0, awayScore: 0, stat: '0', hotFlag: false, sortNum: 0, startTime: '', endTime: ''
 })
 
-// 校验规则 (根据 Swagger AddForm/EditForm 动态调整)
 const rules = computed(() => {
   const base = {
     homeScore: [{ required: true, message: '请输入主队得分', trigger: 'blur' }],
@@ -341,25 +399,48 @@ const rules = computed(() => {
   return base
 })
 
-// 🎥 批量直播对话框状态
+// 🎥 批量直播对话框
 const batchDialogVisible = ref(false)
 const batchFormRef = ref()
 const batchLoading = ref(false)
-const batchForm = reactive({
-  id: null,
-  streamerIds: [],
-  viewNumMin: 0,
-  viewNumMax: 0,
-  recommendFlag: false
-})
-
+const batchForm = reactive({ id: null, streamerIds: [], viewNumMin: 0, viewNumMax: 0, recommendFlag: false })
 const batchRules = {
   streamerIds: [{ required: true, message: '请至少选择一个主播', trigger: 'change' }],
   viewNumMin: [{ required: true, message: '请输入最小观看数', trigger: 'blur' }],
   viewNumMax: [{ required: true, message: '请输入最大观看数', trigger: 'blur' }]
 }
 
-// 原生 JS 转换（无需额外依赖）
+// 🏆 竞猜对话框状态 (新增)
+const guessDialogVisible = ref(false)
+const guessFormRef = ref()
+const guessLoading = ref(false)
+const guessForm = reactive({
+  id: null,
+  matchTitle: '',
+  betFlag: false,
+  handicap: '',
+  winCoins: 0
+})
+
+// 让球格式校验：整数或 .5 结尾的小数
+const validateHandicap = (rule, value, callback) => {
+  if (!value) return callback(new Error('请输入让球数值'))
+  // 匹配：整数（如 0, -1, 2）或 .5 结尾小数（如 0.5, -1.5, 2.5）
+  const pattern = /^-?\d+(\.5)?$/
+  if (pattern.test(value)) {
+    callback()
+  } else {
+    callback(new Error('仅支持整数或 .5 结尾的小数，如 0, -1.5, 2.5'))
+  }
+}
+
+const guessRules = {
+  betFlag: [{ required: true, message: '请设置是否开启竞猜', trigger: 'change' }],
+  handicap: [{ required: true, validator: validateHandicap, trigger: 'blur' }],
+  winCoins: [{ required: true, message: '请输入中奖金额', trigger: 'blur' }]
+}
+
+// 时间戳转换
 const toTimestamp = (dateStr) => dateStr ? Math.floor(new Date(dateStr).getTime() / 1000) : undefined
 
 // 🔍 查询列表
@@ -393,7 +474,7 @@ const handleReset = () => {
   handleQuery()
 }
 
-// 📥 初始化下拉数据
+// 📥 初始化下拉
 const fetchLeagues = async () => {
   try {
     const res = await request.post('/pub/leagueOptions.do', {})
@@ -416,11 +497,11 @@ const fetchStreamers = async () => {
   } catch (e) { console.error('获取主播失败', e) }
 }
 
-// ️ 辅助方法
+// 🏷️ 辅助方法
 const getTeamName = (code) => {
-  for (const leagueCode in teamOptionsMap.value) {
-    const team = teamOptionsMap.value[leagueCode].find(t => t.value === code)
-    if (team) return team.label
+  for (const lc in teamOptionsMap.value) {
+    const t = teamOptionsMap.value[lc].find(item => item.value === code)
+    if (t) return t.label
   }
   return code || '-'
 }
@@ -435,7 +516,7 @@ const getStatTagType = (stat) => {
   return map[stat] || 'info'
 }
 
-// ✏️ 表单操作
+// ✏️ 比赛表单操作
 const handleAdd = () => {
   isEdit.value = false
   Object.assign(form, { id: null, leagueCode: '', homeTeamCode: '', awayTeamCode: '', homeScore: 0, awayScore: 0, stat: '0', hotFlag: false, sortNum: 0, startTime: '', endTime: '' })
@@ -446,7 +527,6 @@ const handleAdd = () => {
 const handleEdit = (row) => {
   isEdit.value = true
   Object.assign(form, { ...row })
-  // 编辑时加载该联赛的球队列表（用于展示名称，虽然不可改）
   if (row.leagueCode) fetchTeams(row.leagueCode)
   dialogVisible.value = true
   setTimeout(() => formRef.value?.clearValidate(), 100)
@@ -467,7 +547,6 @@ const handleSubmit = async () => {
       const payload = isEdit.value
         ? { id: form.id, homeScore: form.homeScore, awayScore: form.awayScore, stat: form.stat, hotFlag: form.hotFlag, sortNum: form.sortNum, endTime: toTimestamp(form.endTime) || undefined }
         : { leagueCode: form.leagueCode, homeTeamCode: form.homeTeamCode, awayTeamCode: form.awayTeamCode, homeScore: form.homeScore, awayScore: form.awayScore, stat: form.stat, hotFlag: form.hotFlag, sortNum: form.sortNum, startTime: toTimestamp(form.startTime) }
-
       await request.post(isEdit.value ? '/match/edit.do' : '/match/add.do', payload)
       ElMessage.success(isEdit.value ? '修改成功' : '新增成功')
       dialogVisible.value = false
@@ -481,31 +560,19 @@ const handleSubmit = async () => {
 }
 
 const handleDelete = (row) => {
-  ElMessageBox.confirm(`确定要删除比赛 "${getTeamName(row.homeTeamCode)} vs ${getTeamName(row.awayTeamCode)}" 吗？`, '警告', {
-    confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
-  }).then(async () => {
-    try {
+  ElMessageBox.confirm(`确定要删除比赛 "${getTeamName(row.homeTeamCode)} vs ${getTeamName(row.awayTeamCode)}" 吗？`, '警告', { type: 'warning' })
+    .then(async () => {
       await request.post('/match/delete.do', { id: row.id })
-      ElMessage.success('删除成功')
-      handleQuery()
-    } catch (error) {
-      ElMessage.error('删除失败：' + (error.message || '未知错误'))
-    }
-  }).catch(() => {})
+      ElMessage.success('删除成功'); handleQuery()
+    }).catch(() => {})
 }
 
-const handleDialogClose = () => {
-  formRef.value?.resetFields()
-}
+const handleDialogClose = () => { formRef.value?.resetFields() }
 
-// 🎥 批量直播操作
+// 🎥 批量直播
 const openBatchLiveDialog = (row) => {
-  if (row) {
-    batchForm.id = row.id
-  } else {
-    ElMessage.warning('请先在表格中选择一场比赛')
-    return
-  }
+  if (!row) return ElMessage.warning('请先选择一场比赛')
+  batchForm.id = row.id
   batchForm.streamerIds = []
   batchForm.viewNumMin = 0
   batchForm.viewNumMax = 0
@@ -533,9 +600,47 @@ const handleBatchSubmit = async () => {
   })
 }
 
-const handleBatchDialogClose = () => {
-  batchFormRef.value?.resetFields()
+const handleBatchDialogClose = () => { batchFormRef.value?.resetFields() }
+
+// 🏆 竞猜功能 (新增)
+const openGuessDialog = (row) => {
+  if (row.stat !== 1) return ElMessage.warning('仅未开始的比赛可设置竞猜')
+
+  guessForm.id = row.id
+  guessForm.matchTitle = `${getTeamName(row.homeTeamName)} vs ${getTeamName(row.awayTeamName)}`
+  guessForm.betFlag = row.betFlag ?? false
+  guessForm.handicap = row.handicap ?? ''
+  guessForm.winCoins = row.winCoins ?? 0
+
+  guessDialogVisible.value = true
+  setTimeout(() => guessFormRef.value?.clearValidate(), 100)
 }
+
+const handleGuessSubmit = async () => {
+  if (!guessFormRef.value) return
+  await guessFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    guessLoading.value = true
+    try {
+      // ✅ 调用 /match/setGuess.do 接口
+      await request.post('/match/setGuess.do', {
+        id: guessForm.id,
+        betFlag: guessForm.betFlag,
+        handicap: guessForm.handicap,
+        winCoins: guessForm.winCoins
+      })
+      ElMessage.success('竞猜配置保存成功')
+      guessDialogVisible.value = false
+      handleQuery() // 刷新表格更新竞猜字段
+    } catch (error) {
+      ElMessage.error('保存失败：' + (error.message || '未知错误'))
+    } finally {
+      guessLoading.value = false
+    }
+  })
+}
+
+const handleGuessDialogClose = () => { guessFormRef.value?.resetFields() }
 
 onMounted(() => {
   fetchLeagues()
@@ -556,4 +661,5 @@ onMounted(() => {
 .search-buttons { display: flex; gap: 10px; justify-content: flex-end; width: 100%; }
 .dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
 .score-text { font-weight: bold; color: #409EFF; font-size: 14px; }
+.form-tip { font-size: 12px; color: #909399; margin-top: 4px; }
 </style>
