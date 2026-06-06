@@ -53,7 +53,6 @@
             <el-tag :type="row.disabled ? 'danger' : 'success'" size="small">{{ row.disabled ? '禁用' : '启用' }}</el-tag>
           </template>
         </el-table-column>
-        <!-- ✅ 修改：直接显示未转换的原始设置数据 -->
         <el-table-column label="设置数据(原始JSON)" prop="settingsData" min-width="250" show-overflow-tooltip>
           <template #default="{ row }">
             <span class="json-text">{{ row.settingsData }}</span>
@@ -62,9 +61,18 @@
         <el-table-column label="创建时间" prop="createAt" width="180" align="center">
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="120" align="center" fixed="right">
+        <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+            <!-- ✅ 新增：启用/禁用切换按钮 -->
+            <el-button
+              :type="row.disabled ? 'success' : 'warning'"
+              link
+              size="small"
+              @click="handleToggle(row)"
+            >
+              {{ row.disabled ? '启用' : '禁用' }}
+            </el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -338,6 +346,30 @@ const handleSubmit = async () => {
       submitLoading.value = false
     }
   })
+}
+
+// 🔄 启用/禁用切换 (新增)
+const handleToggle = async (row) => {
+  const action = row.disabled ? '启用' : '禁用'
+  try {
+    await ElMessageBox.confirm(
+      `确定要${action}设置 "${row.settingsKey}" 吗？`,
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    // ✅ 调用 /global/toggle.do 接口，仅传 id
+    await request.post('/global/toggle.do', { id: row.id })
+    ElMessage.success(`${action}成功`)
+    handleQuery() // 刷新表格更新状态
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(`${action}失败：` + (error.message || '未知错误'))
+    }
+  }
 }
 
 // 🗑️ 删除
