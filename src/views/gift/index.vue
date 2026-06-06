@@ -186,6 +186,8 @@
               {{ row.disabled ? '启用' : '禁用' }}
             </el-button>
             <el-button type="info" link size="small" @click="openDescDialog(row)">描述管理</el-button>
+            <!-- ✅ 新增：库存按钮 -->
+            <el-button type="success" link size="small" @click="handleGoStock(row)">库存</el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -386,10 +388,20 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getDictOptions, getDictLabel } from '@/utils/dict'
+import { useRouter } from 'vue-router' // ✅ 新增导入
 
+const router = useRouter() // ✅ 实例化
 // 📊 表格状态
 const tableData = ref([])
 const loading = ref(false)
+
+// 📦 跳转库存页
+const handleGoStock = (row) => {
+  router.push({
+    path: '/stock', // ⚠️ 请确保路由配置中库存页的 path 与此一致
+    query: { giftCode: row.giftCode }
+  })
+}
 
 // 🔍 查询参数
 const queryParams = reactive({
