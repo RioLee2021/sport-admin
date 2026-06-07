@@ -17,18 +17,8 @@
           </el-col>
           <el-col :span="6">
             <el-form-item label="礼物类型" prop="giftType">
-              <el-select
-                v-model="queryParams.giftType"
-                placeholder="请选择"
-                clearable
-                style="width: 100%; min-width: 120px"
-              >
-                <el-option
-                  v-for="item in getDictOptions('GiftType')"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
+              <el-select v-model="queryParams.giftType" placeholder="请选择" clearable style="width: 100%; min-width: 120px">
+                <el-option v-for="item in getDictOptions('GiftType')" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -49,18 +39,8 @@
           </el-col>
           <el-col :span="6">
             <el-form-item label="状态" prop="stat">
-              <el-select
-                v-model="queryParams.stat"
-                placeholder="请选择"
-                clearable
-                style="width: 100%; min-width: 120px"
-              >
-                <el-option
-                  v-for="item in getDictOptions('GiftRecordStat')"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
+              <el-select v-model="queryParams.stat" placeholder="请选择" clearable style="width: 100%; min-width: 120px">
+                <el-option v-for="item in getDictOptions('GiftRecordStat')" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -87,12 +67,12 @@
         <el-table-column label="订单号" prop="orderNo" width="160" show-overflow-tooltip />
         <el-table-column label="礼物编号" prop="giftCode" width="120" align="center" />
         <el-table-column label="礼物说明" prop="giftInfo" min-width="150" show-overflow-tooltip />
-        <el-table-column label="库存编号" prop="stockNo" width="130" align="center" />
-        <el-table-column label="会员名称" prop="username" width="120" align="center" />
-        <el-table-column label="手机号" prop="phoneNumber" width="130" align="center" />
         <el-table-column label="价格" prop="price" width="100" align="center">
           <template #default="{ row }">{{ row.price }} 金币</template>
         </el-table-column>
+        <el-table-column label="库存编号" prop="stockNo" width="130" align="center" />
+        <el-table-column label="会员名称" prop="username" width="120" align="center" />
+        <el-table-column label="手机号" prop="phoneNumber" width="130" align="center" />
         <el-table-column label="状态" prop="stat" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getStatTag(row.stat)" size="small">
@@ -104,10 +84,12 @@
         <el-table-column label="创建时间" prop="createAt" width="180" align="center">
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="160" align="center" fixed="right">
+        <!-- ✅ 操作列增加退货按钮 -->
+        <el-table-column label="操作" width="280" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="success" link size="small" @click="openActionDialog(row, 'deliver')">发货</el-button>
-            <el-button type="danger" link size="small" @click="openActionDialog(row, 'cancel')">取消发货</el-button>
+            <el-button type="warning" link size="small" @click="openActionDialog(row, 'cancel')">取消发货</el-button>
+            <el-button type="danger" link size="small" @click="openActionDialog(row, 'refund')">退货</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -125,10 +107,10 @@
       />
     </el-card>
 
-    <!-- 📦 发货/取消发货 对话框 -->
+    <!-- 📝 发货/取消/退货 统一备注弹窗 -->
     <el-dialog
-      v-model="dialogVisible"
-      :title="actionType === 'deliver' ? '发货确认' : '取消发货确认'"
+      v-model="actionDialogVisible"
+      :title="actionTitle"
       width="450px"
       :close-on-click-modal="false"
       @close="handleDialogClose"
@@ -142,14 +124,14 @@
             v-model="actionForm.remark"
             type="textarea"
             :rows="3"
-            placeholder="请输入发货或取消原因"
+            placeholder="请输入备注说明"
             clearable
           />
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button @click="actionDialogVisible = false">取消</el-button>
           <el-button type="primary" :loading="submitLoading" @click="handleActionSubmit">确定</el-button>
         </span>
       </template>
@@ -158,7 +140,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import request from '@/utils/request'
@@ -170,31 +152,38 @@ const loading = ref(false)
 
 // 🔍 查询参数
 const queryParams = reactive({
-  giftCode: '',
-  giftType: '',
-  orderNo: '',
-  phoneNumber: '',
-  stockNo: '',
-  stat: '',
+  giftCode: null,
+  giftType: null,
+  orderNo: null,
+  phoneNumber: null,
+  stockNo: null,
+  stat: null,
   page: 1,
   pageSize: 10
 })
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
 const queryFormRef = ref()
 
-// 📦 操作对话框状态
-const dialogVisible = ref(false)
+// 📝 操作弹窗状态
+const actionDialogVisible = ref(false)
 const actionFormRef = ref()
 const submitLoading = ref(false)
-const actionType = ref('deliver') // 'deliver' | 'cancel'
+const actionType = ref('deliver') // 'deliver' | 'cancel' | 'refund'
+
 const actionForm = reactive({ id: null, orderNo: '', remark: '' })
 const actionRules = {
   remark: [{ required: true, message: '请输入操作备注', trigger: 'blur' }]
 }
 
-// 🏷️ 状态标签颜色映射（可根据实际业务调整）
+// ✅ 动态弹窗标题
+const actionTitle = computed(() => {
+  const map = { deliver: '发货备注', cancel: '取消发货备注', refund: '退货备注' }
+  return map[actionType.value] || '操作备注'
+})
+
+// 🏷️ 状态标签颜色映射
 const getStatTag = (stat) => {
-  const map = { '0': 'info', '1': 'success', '2': 'warning', '3': 'danger' }
+  const map = { '0': 'info', '1': 'warning', '2': 'success', '3': 'danger' }
   return map[stat] || 'info'
 }
 
@@ -202,17 +191,11 @@ const getStatTag = (stat) => {
 const handleQuery = async () => {
   loading.value = true
   try {
-    const payload = {
-      giftCode: queryParams.giftCode || undefined,
-      giftType: queryParams.giftType || undefined,
-      orderNo: queryParams.orderNo || undefined,
-      phoneNumber: queryParams.phoneNumber || undefined,
-      stockNo: queryParams.stockNo || undefined,
-      stat: queryParams.stat || undefined,
+    const res = await request.post('/giftRecord/page.do', {
+      ...queryParams,
       page: pagination.page,
       pageSize: pagination.pageSize
-    }
-    const res = await request.post('/giftRecord/page.do', payload)
+    })
     if (res.data) {
       tableData.value = res.data.list || []
       pagination.total = res.data.total || 0
@@ -224,7 +207,6 @@ const handleQuery = async () => {
   }
 }
 
-// 🔄 重置查询
 const handleReset = () => {
   queryFormRef.value?.resetFields()
   pagination.page = 1
@@ -235,22 +217,30 @@ const handleReset = () => {
 const openActionDialog = (row, type) => {
   actionType.value = type
   Object.assign(actionForm, { id: row.id, orderNo: row.orderNo, remark: '' })
-  dialogVisible.value = true
+  actionDialogVisible.value = true
   setTimeout(() => actionFormRef.value?.clearValidate(), 100)
 }
 
-// 💾 提交发货/取消
+// 💾 提交操作
 const handleActionSubmit = async () => {
   if (!actionFormRef.value) return
   await actionFormRef.value.validate(async (valid) => {
     if (!valid) return
     submitLoading.value = true
     try {
-      const api = actionType.value === 'deliver' ? '/giftRecord/delivered.do' : '/giftRecord/cancel.do'
-      // 严格遵循 BaseRemarkForm 定义：id + remark
+      // ✅ 根据类型动态匹配接口与提示
+      let api = ''
+      let successMsg = ''
+      switch (actionType.value) {
+        case 'deliver': api = '/giftRecord/delivered.do'; successMsg = '发货成功'; break
+        case 'cancel':  api = '/giftRecord/cancel.do';    successMsg = '取消发货成功'; break
+        case 'refund':  api = '/giftRecord/refunded.do';  successMsg = '退货成功'; break
+      }
+
+      // 参数与取消发货一致：{ id, remark }
       await request.post(api, { id: actionForm.id, remark: actionForm.remark })
-      ElMessage.success(actionType.value === 'deliver' ? '发货成功' : '已取消发货')
-      dialogVisible.value = false
+      ElMessage.success(successMsg)
+      actionDialogVisible.value = false
       handleQuery()
     } catch (error) {
       ElMessage.error('操作失败：' + (error.message || '未知错误'))
