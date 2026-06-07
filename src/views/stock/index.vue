@@ -41,6 +41,17 @@
               </el-select>
             </el-form-item>
           </el-col>
+          <el-col :span="8">
+            <el-form-item label="库存编号" prop="stockNo">
+              <el-input
+                v-model="queryParams.stockNo"
+                clearable
+                style="width: 100%; min-width: 120px"
+              >
+              </el-input>
+            </el-form-item>
+          </el-col>
+
           <el-col :span="12">
             <div class="search-buttons">
               <el-button type="primary" :icon="Search" @click="handleQuery">查询</el-button>
@@ -75,7 +86,7 @@
         <el-table-column type="index" label="序号" width="60" align="center" />
         <el-table-column label="礼物编号" prop="giftCode" width="140" align="center" show-overflow-tooltip />
         <el-table-column label="礼物内容" prop="giftContent" min-width="200" show-overflow-tooltip />
-
+        <el-table-column label="库存编号" prop="stockNo" width="140" align="center"/>
         <el-table-column label="是否售出" prop="soldFlag" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.soldFlag ? 'success' : 'info'" size="small">
@@ -140,6 +151,13 @@
             type="textarea"
             :rows="3"
             placeholder="请输入礼物内容"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="库存编号" prop="stockNo">
+          <el-input
+            v-model="addForm.stockNo"
+            placeholder="请输入库存编号"
             clearable
           />
         </el-form-item>
@@ -214,6 +232,7 @@ const giftOptions = ref([])
 const queryParams = reactive({
   giftCode: '',
   soldFlag: undefined,
+  stockNo: null,
   page: 1,
   pageSize: 10
 })
