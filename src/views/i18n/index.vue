@@ -68,6 +68,8 @@
           <span class="title">国际化字典列表</span>
           <div class="header-actions">
             <el-button type="warning" :icon="Refresh" @click="handleSync">同步基础数据</el-button>
+            <el-button type="success" :icon="Download" @click="openDownloadDialog">下载字典</el-button>
+            <el-button type="info" :icon="Upload" @click="openUploadDialog">上传字典</el-button>
             <el-button type="primary" :icon="Plus" @click="handleAdd">新增字典</el-button>
           </div>
         </div>
@@ -271,13 +273,128 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 📥 下载字典数据对话框 -->
+    <el-dialog
+      v-model="downloadDialogVisible"
+      title="下载字典数据"
+      width="420px"
+      :close-on-click-modal="false"
+      @close="handleDownloadClose"
+    >
+      <el-alert
+        type="info"
+        :closable="false"
+        style="margin-bottom: 16px"
+        show-icon
+      >
+        提示：下载的文件为 Excel 格式，可直接用于批量编辑或备份
+      </el-alert>
+      <el-form :model="downloadForm" label-width="100px">
+        <el-form-item label="字典类型" required>
+          <el-select
+            v-model="downloadForm.dictType"
+            placeholder="请选择字典类型"
+            style="width: 100%"
+            @change="handleDictTypeChange"
+          >
+            <el-option
+              v-for="item in getDictOptions('DictType')"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="语言代码" required>
+          <el-input
+            v-model="downloadForm.languageCode"
+            placeholder="如：zh-CN, en-US"
+            maxlength="20"
+            clearable
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="downloadDialogVisible = false">取消</el-button>
+        <el-button type="success" :loading="downloadLoading" @click="confirmDownload">
+          开始下载
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 📤 上传字典数据对话框 -->
+    <el-dialog
+      v-model="uploadDialogVisible"
+      title="上传字典数据"
+      width="450px"
+      :close-on-click-modal="false"
+      @close="handleUploadClose"
+    >
+      <el-alert
+        type="warning"
+        :closable="false"
+        style="margin-bottom: 16px"
+        show-icon
+      >
+        提示：上传的文件需为 Excel 格式，且列头需与模板一致
+      </el-alert>
+      <el-form :model="uploadForm" label-width="100px">
+        <el-form-item label="字典类型" required>
+          <el-select
+            v-model="uploadForm.dictType"
+            placeholder="请选择字典类型"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in getDictOptions('DictType')"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="语言代码" required>
+          <el-input
+            v-model="uploadForm.languageCode"
+            placeholder="如：zh-CN, en-US"
+            maxlength="20"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="Json文件" required>
+          <el-upload
+            ref="uploadRef"
+            :auto-upload="false"
+            :limit="1"
+            accept=".json"
+            :on-change="handleFileChange"
+            :on-remove="handleFileRemove"
+          >
+            <template #trigger>
+              <el-button type="primary">选取文件</el-button>
+            </template>
+            <template #tip>
+              <div class="el-upload__tip">仅支持 json 格式，大小不超过 5MB</div>
+            </template>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="uploadDialogVisible = false">取消</el-button>
+        <el-button type="info" link @click="downloadTemplate">下载模板</el-button>
+        <el-button type="primary" :loading="uploadLoading" @click="confirmUpload">
+          开始上传
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Download, Upload } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getDictOptions, getDictLabel } from '@/utils/dict'
 
@@ -346,6 +463,17 @@ const dialogTitle = computed(() => isEdit.value ? '编辑字典' : '新增字典
 const syncDialogVisible = ref(false)
 const syncLoading = ref(false)
 const syncForm = reactive({ dictType: null })
+
+// 📥 下载字典状态
+const downloadDialogVisible = ref(false)
+const downloadLoading = ref(false)
+const downloadForm = reactive({ dictType: null, languageCode: '' })
+
+// 📤 上传字典状态
+const uploadDialogVisible = ref(false)
+const uploadLoading = ref(false)
+const uploadRef = ref()
+const uploadForm = reactive({ dictType: null, languageCode: '', file: null })
 
 /** 🔍 查询列表 */
 const handleQuery = async () => {
@@ -456,7 +584,7 @@ const confirmSync = async () => {
       '同步结果',
       { dangerouslyUseHTMLString: true, confirmButtonText: '确定', type: 'success' }
     ).then(() => {
-      handleQuery() // 同步成功后刷新列表
+      handleQuery()
     })
   } catch (error) {
     ElMessage.error('同步失败：' + (error.message || '未知错误'))
@@ -464,6 +592,142 @@ const confirmSync = async () => {
     syncLoading.value = false
     syncDialogVisible.value = false
   }
+}
+
+/** 📥 打开下载对话框 */
+const openDownloadDialog = () => {
+  downloadForm.dictType = null
+  downloadForm.languageCode = ''
+  downloadDialogVisible.value = true
+}
+
+/** 📥 字典类型变更时自动填充语言代码示例 */
+const handleDictTypeChange = (val) => {
+  // 可根据业务需求预设常用语言代码
+  if (val === '0') downloadForm.languageCode = 'zh-CN'
+  else if (val === '1') downloadForm.languageCode = 'en-US'
+  else downloadForm.languageCode = ''
+}
+
+// src/views/i18n/index.vue 中的 confirmDownload 方法
+const confirmDownload = async () => {
+  if (!downloadForm.dictType || !downloadForm.languageCode?.trim()) {
+    return ElMessage.warning('请选择字典类型并填写语言代码')
+  }
+
+  downloadLoading.value = true
+  try {
+    // 🔑 关键：添加 responseType: 'blob'
+    const res = await request.post('/i18n/downloadDictData.do', {
+      dictType: downloadForm.dictType,
+      languageCode: downloadForm.languageCode.trim()
+    }, {
+      responseType: 'blob'  // ⚠️ 必须添加此项
+    })
+
+    // 🔑 关键：res 已经是 Blob，直接使用
+    const blob = new Blob([res.data], { type: 'application/json;charset=UTF-8' })
+
+    const link = document.createElement('a')
+    const fileName = `${downloadForm.dictType}_${downloadForm.languageCode}.json`
+
+    link.href = URL.createObjectURL(blob)
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)  // ✅ 释放内存
+
+    ElMessage.success('下载成功')
+    downloadDialogVisible.value = false
+  } catch (error) {
+    // 🔍 错误处理：blob 错误时解析为文本查看后端报错
+    if (error.response?.data instanceof Blob) {
+      const text = await error.response.data.text()
+      ElMessage.error('下载失败：' + text)
+    } else {
+      ElMessage.error('下载失败：' + (error.message || '未知错误'))
+    }
+  } finally {
+    downloadLoading.value = false
+  }
+}
+
+/** 📥 关闭下载对话框 */
+const handleDownloadClose = () => {
+  downloadForm.dictType = null
+  downloadForm.languageCode = ''
+}
+
+/** 📤 打开上传对话框 */
+const openUploadDialog = () => {
+  uploadForm.dictType = null
+  uploadForm.languageCode = ''
+  uploadForm.file = null
+  if (uploadRef.value) uploadRef.value.clearFiles()
+  uploadDialogVisible.value = true
+}
+
+/** 📤 文件变更处理 */
+const handleFileChange = (file) => {
+  // 校验文件大小（5MB）
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.error('文件大小不能超过 5MB')
+    uploadRef.value?.clearFiles()
+    uploadForm.file = null
+    return
+  }
+  uploadForm.file = file.raw
+}
+
+/** 📤 文件移除处理 */
+const handleFileRemove = () => {
+  uploadForm.file = null
+}
+
+/** 📤 下载上传模板 */
+const downloadTemplate = () => {
+  // 复用下载接口，传空语言代码获取模板（或后端提供独立模板接口）
+  ElMessage.info('请联系管理员获取标准上传模板，或先下载任意字典数据作为参考')
+}
+
+/** 📤 确认上传 */
+const confirmUpload = async () => {
+  if (!uploadForm.dictType || !uploadForm.languageCode?.trim()) {
+    return ElMessage.warning('请选择字典类型并填写语言代码')
+  }
+  if (!uploadForm.file) {
+    return ElMessage.warning('请先选取要上传的文件')
+  }
+
+  uploadLoading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', uploadForm.file)
+    formData.append('dictType', uploadForm.dictType)
+    formData.append('languageCode', uploadForm.languageCode.trim())
+
+    // ✅ 调用 uploadDictData.do
+    const res = await request.post('/i18n/uploadDictData.do', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    ElMessage.success('上传成功')
+    uploadDialogVisible.value = false
+    handleQuery() // 刷新列表
+  } catch (error) {
+    ElMessage.error('上传失败：' + (error.message || '未知错误'))
+  } finally {
+    uploadLoading.value = false
+  }
+}
+
+/** 📤 关闭上传对话框 */
+const handleUploadClose = () => {
+  uploadForm.dictType = null
+  uploadForm.languageCode = ''
+  uploadForm.file = null
+  if (uploadRef.value) uploadRef.value.clearFiles()
 }
 
 /** 🚫 关闭对话框清理 */
@@ -479,13 +743,12 @@ onMounted(() => handleQuery())
   :deep(.el-card__body) { padding: 20px; }
   .card-header { display: flex; justify-content: space-between; align-items: center;
     .title { font-size: 16px; font-weight: bold; color: #303133; }
-    .header-actions { display: flex; gap: 10px; }
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
   }
 }
 .search-buttons { display: flex; gap: 10px; }
-.dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
+.dialog-footer { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 :deep(.el-divider__text) { font-size: 13px; color: #606266; font-weight: 500; }
-
-// 修复下拉框宽度
 :deep(.i18n-dict-select) { min-width: 180px !important; }
+.el-upload__tip { font-size: 12px; color: #909399; margin-top: 4px; }
 </style>
