@@ -688,9 +688,6 @@ const openDownloadDialog = () => {
 
 /** 📥 确认下载 */
 const confirmDownload = async () => {
-  if (!downloadForm.dictType || !downloadForm.languageCode?.trim()) {
-    return ElMessage.warning('请选择字典类型并填写语言代码')
-  }
 
   downloadLoading.value = true
   try {
