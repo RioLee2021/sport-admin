@@ -61,6 +61,63 @@
       </el-form>
     </el-card>
 
+    <!-- 📊 字典数量统计面板 -->
+    <el-card class="stats-card" shadow="hover" v-if="stsDataList.length > 0">
+      <template #header>
+        <div class="stats-header">
+          <span class="title">📊 字典数量统计</span>
+          <el-button type="primary" link size="small" :icon="Refresh" @click="fetchStsData">刷新统计</el-button>
+        </div>
+      </template>
+
+      <el-row :gutter="20">
+        <el-col
+          v-for="item in stsDataList"
+          :key="item.dictType"
+          :span="8"
+          class="stats-item"
+        >
+          <div class="stats-type">
+            {{ getDictLabel('DictType', item.dictType) }}
+            <el-tag size="small" type="info">{{ item.dictType }}</el-tag>
+          </div>
+
+          <el-row :gutter="10" class="stats-counts">
+            <el-col :span="8">
+              <div
+                class="count-box"
+                :class="{ 'count-low': isCountLow(item, 'zhCnt') }"
+                @click="highlightByLanguage(item.dictType, 'zh')"
+              >
+                <div class="count-label">🇨 中文</div>
+                <div class="count-value">{{ item.zhCnt || 0 }}</div>
+              </div>
+            </el-col>
+            <el-col :span="8">
+              <div
+                class="count-box"
+                :class="{ 'count-low': isCountLow(item, 'enCnt') }"
+                @click="highlightByLanguage(item.dictType, 'en')"
+              >
+                <div class="count-label">🇬 英文</div>
+                <div class="count-value">{{ item.enCnt || 0 }}</div>
+              </div>
+            </el-col>
+            <el-col :span="8">
+              <div
+                class="count-box"
+                :class="{ 'count-low': isCountLow(item, 'thCnt') }"
+                @click="highlightByLanguage(item.dictType, 'th')"
+              >
+                <div class="count-label">🇹 泰文</div>
+                <div class="count-value">{{ item.thCnt || 0 }}</div>
+              </div>
+            </el-col>
+          </el-row>
+        </el-col>
+      </el-row>
+    </el-card>
+
     <!-- 📋 表格区域 -->
     <el-card class="table-card" shadow="hover">
       <template #header>
@@ -288,7 +345,7 @@
         style="margin-bottom: 16px"
         show-icon
       >
-        提示：下载的文件为 Excel 格式，可直接用于批量编辑或备份
+        提示：下载的文件为 JSON 格式，可直接用于批量编辑或备份
       </el-alert>
       <el-form :model="downloadForm" label-width="100px">
         <el-form-item label="字典类型" required>
@@ -296,7 +353,6 @@
             v-model="downloadForm.dictType"
             placeholder="请选择字典类型"
             style="width: 100%"
-            @change="handleDictTypeChange"
           >
             <el-option
               v-for="item in getDictOptions('DictType')"
@@ -309,7 +365,7 @@
         <el-form-item label="语言代码" required>
           <el-input
             v-model="downloadForm.languageCode"
-            placeholder="如：zh-CN, en-US"
+            placeholder="如：zh, en"
             maxlength="20"
             clearable
           />
@@ -337,7 +393,7 @@
         style="margin-bottom: 16px"
         show-icon
       >
-        提示：上传的文件需为 Excel 格式，且列头需与模板一致
+        提示：上传的文件需为 JSON 格式，且格式需与下载文件一致
       </el-alert>
       <el-form :model="uploadForm" label-width="100px">
         <el-form-item label="字典类型" required>
@@ -362,7 +418,7 @@
             clearable
           />
         </el-form-item>
-        <el-form-item label="Json文件" required>
+        <el-form-item label="Json 文件" required>
           <el-upload
             ref="uploadRef"
             :auto-upload="false"
@@ -401,6 +457,9 @@ import { getDictOptions, getDictLabel } from '@/utils/dict'
 // 📊 表格状态
 const tableData = ref([])
 const loading = ref(false)
+
+// 📈 字典统计状态
+const stsDataList = ref([])
 
 // 🔍 查询参数
 const queryParams = reactive({
@@ -475,7 +534,30 @@ const uploadLoading = ref(false)
 const uploadRef = ref()
 const uploadForm = reactive({ dictType: null, languageCode: '', file: null })
 
-/** 🔍 查询列表 */
+// 📈 获取字典数量统计
+const fetchStsData = async () => {
+  try {
+    const res = await request.post('/i18n/stsData.do', {})
+    if (res.data && Array.isArray(res.data)) {
+      stsDataList.value = res.data
+    }
+  } catch (error) {
+    console.error('获取统计失败:', error)
+  }
+}
+
+// 🔍 判断是否为数量较少的项
+const isCountLow = (item, field) => {
+  const counts = [item.zhCnt || 0, item.enCnt || 0, item.thCnt || 0]
+  const min = Math.min(...counts)
+  const max = Math.max(...counts)
+  // 如果最大值和最小值相等，说明都相等，不高亮
+  if (min === max) return false
+  // 如果当前值等于最小值且小于最大值，则高亮
+  return item[field] < max
+}
+
+// 🔍 查询列表
 const handleQuery = async () => {
   loading.value = true
   try {
@@ -539,6 +621,7 @@ const handleSubmit = async () => {
       ElMessage.success(isEdit.value ? '修改成功' : '新增成功')
       dialogVisible.value = false
       handleQuery()
+      fetchStsData() // 刷新统计
     } catch (error) {
       ElMessage.error((isEdit.value ? '修改' : '新增') + '失败：' + (error.message || '未知错误'))
     } finally {
@@ -556,6 +639,7 @@ const handleDelete = (row) => {
       await request.post('/i18n/delete.do', { id: row.id })
       ElMessage.success('删除成功')
       handleQuery()
+      fetchStsData() // 刷新统计
     } catch (error) {
       ElMessage.error('删除失败：' + (error.message || '未知错误'))
     }
@@ -585,6 +669,7 @@ const confirmSync = async () => {
       { dangerouslyUseHTMLString: true, confirmButtonText: '确定', type: 'success' }
     ).then(() => {
       handleQuery()
+      fetchStsData() // 刷新统计
     })
   } catch (error) {
     ElMessage.error('同步失败：' + (error.message || '未知错误'))
@@ -601,15 +686,7 @@ const openDownloadDialog = () => {
   downloadDialogVisible.value = true
 }
 
-/** 📥 字典类型变更时自动填充语言代码示例 */
-const handleDictTypeChange = (val) => {
-  // 可根据业务需求预设常用语言代码
-  if (val === '0') downloadForm.languageCode = 'zh-CN'
-  else if (val === '1') downloadForm.languageCode = 'en-US'
-  else downloadForm.languageCode = ''
-}
-
-// src/views/i18n/index.vue 中的 confirmDownload 方法
+/** 📥 确认下载 */
 const confirmDownload = async () => {
   if (!downloadForm.dictType || !downloadForm.languageCode?.trim()) {
     return ElMessage.warning('请选择字典类型并填写语言代码')
@@ -617,17 +694,14 @@ const confirmDownload = async () => {
 
   downloadLoading.value = true
   try {
-    // 🔑 关键：添加 responseType: 'blob'
     const res = await request.post('/i18n/downloadDictData.do', {
       dictType: downloadForm.dictType,
       languageCode: downloadForm.languageCode.trim()
     }, {
-      responseType: 'blob'  // ⚠️ 必须添加此项
+      responseType: 'blob'
     })
 
-    // 🔑 关键：res 已经是 Blob，直接使用
     const blob = new Blob([res.data], { type: 'application/json;charset=UTF-8' })
-
     const link = document.createElement('a')
     const fileName = `${downloadForm.dictType}_${downloadForm.languageCode}.json`
 
@@ -636,12 +710,11 @@ const confirmDownload = async () => {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    URL.revokeObjectURL(link.href)  // ✅ 释放内存
+    URL.revokeObjectURL(link.href)
 
     ElMessage.success('下载成功')
     downloadDialogVisible.value = false
   } catch (error) {
-    // 🔍 错误处理：blob 错误时解析为文本查看后端报错
     if (error.response?.data instanceof Blob) {
       const text = await error.response.data.text()
       ElMessage.error('下载失败：' + text)
@@ -670,7 +743,6 @@ const openUploadDialog = () => {
 
 /** 📤 文件变更处理 */
 const handleFileChange = (file) => {
-  // 校验文件大小（5MB）
   if (file.size > 5 * 1024 * 1024) {
     ElMessage.error('文件大小不能超过 5MB')
     uploadRef.value?.clearFiles()
@@ -687,15 +759,11 @@ const handleFileRemove = () => {
 
 /** 📤 下载上传模板 */
 const downloadTemplate = () => {
-  // 复用下载接口，传空语言代码获取模板（或后端提供独立模板接口）
-  ElMessage.info('请联系管理员获取标准上传模板，或先下载任意字典数据作为参考')
+  ElMessage.info('请先下载任意字典数据作为参考模板')
 }
 
 /** 📤 确认上传 */
 const confirmUpload = async () => {
-  if (!uploadForm.dictType || !uploadForm.languageCode?.trim()) {
-    return ElMessage.warning('请选择字典类型并填写语言代码')
-  }
   if (!uploadForm.file) {
     return ElMessage.warning('请先选取要上传的文件')
   }
@@ -707,14 +775,14 @@ const confirmUpload = async () => {
     formData.append('dictType', uploadForm.dictType)
     formData.append('languageCode', uploadForm.languageCode.trim())
 
-    // ✅ 调用 uploadDictData.do
     const res = await request.post('/i18n/uploadDictData.do', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
 
     ElMessage.success('上传成功')
     uploadDialogVisible.value = false
-    handleQuery() // 刷新列表
+    handleQuery()
+    fetchStsData() // 刷新统计
   } catch (error) {
     ElMessage.error('上传失败：' + (error.message || '未知错误'))
   } finally {
@@ -733,12 +801,57 @@ const handleUploadClose = () => {
 /** 🚫 关闭对话框清理 */
 const handleDialogClose = () => editFormRef.value?.resetFields()
 
-onMounted(() => handleQuery())
+/** 🔍 点击统计项高亮表格 */
+const highlightByLanguage = (dictType, lang) => {
+  // 设置查询条件并刷新表格
+  queryParams.dictType = dictType
+  queryParams.languageCode = lang === 'zh' ? 'zh' : lang === 'en' ? 'en' : 'th'
+  pagination.page = 1
+  handleQuery()
+  ElMessage.info(`已筛选 ${getDictLabel('DictType', dictType)} - ${lang === 'zh' ? '中文' : lang === 'en' ? '英文' : '泰文'} 的字典项`)
+}
+
+onMounted(() => {
+  fetchStsData() // 加载统计
+  handleQuery()
+})
 </script>
 
 <style scoped lang="scss">
 .i18n-container { padding: 20px; }
 .search-card { margin-bottom: 20px; :deep(.el-card__body) { padding: 20px; } }
+
+/* 📈 统计卡片样式 */
+.stats-card {
+  margin-bottom: 20px;
+  :deep(.el-card__body) { padding: 16px 20px; }
+  .stats-header {
+    display: flex; justify-content: space-between; align-items: center;
+    .title { font-size: 15px; font-weight: bold; color: #303133; }
+  }
+  .stats-item {
+    margin-bottom: 16px;
+    .stats-type {
+      display: flex; align-items: center; gap: 8px;
+      font-weight: 500; color: #606266; margin-bottom: 12px;
+      :deep(.el-tag) { font-size: 11px; }
+    }
+    .stats-counts { margin-bottom: 12px; }
+    .count-box {
+      border: 1px solid #dcdfe6; border-radius: 6px; padding: 8px;
+      text-align: center; cursor: pointer; transition: all 0.2s;
+      background: #f5f7fa;
+      &:hover { border-color: #409EFF; background: #f5f9ff; }
+      &.count-low {
+        background: #fef0f0; border-color: #f56c6c;
+        .count-value { color: #f56c6c; font-weight: bold; }
+      }
+      .count-label { font-size: 12px; color: #909399; margin-bottom: 4px; }
+      .count-value { font-size: 18px; font-weight: bold; color: #303133; }
+    }
+  }
+}
+
 .table-card {
   :deep(.el-card__body) { padding: 20px; }
   .card-header { display: flex; justify-content: space-between; align-items: center;

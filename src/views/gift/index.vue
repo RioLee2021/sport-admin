@@ -174,7 +174,7 @@
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
         </el-table-column>
 
-        <el-table-column label="操作" width="260" align="center" fixed="right">
+        <el-table-column label="操作" width="320" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button
@@ -186,8 +186,18 @@
               {{ row.disabled ? '启用' : '禁用' }}
             </el-button>
             <el-button type="info" link size="small" @click="openDescDialog(row)">描述管理</el-button>
-            <!-- ✅ 新增：库存按钮 -->
+            <!-- ✅ 库存按钮 -->
             <el-button type="success" link size="small" @click="handleGoStock(row)">库存</el-button>
+            <!-- ✅ 自动生成库存按钮（仅 giftType=1 显示） -->
+            <el-button
+              v-if="row.giftType === 1"
+              type="primary"
+              link
+              size="small"
+              @click="openAutoStockDialog(row)"
+            >
+              生成库存
+            </el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -246,7 +256,7 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="价格(金币)" prop="price">
+        <el-form-item label="价格 (金币)" prop="price">
           <el-input-number
             v-model="form.price"
             :min="0"
@@ -379,6 +389,74 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 🎁 自动生成库存对话框 (新增) -->
+    <el-dialog
+      v-model="autoStockDialogVisible"
+      title="自动生成库存"
+      width="480px"
+      :close-on-click-modal="false"
+      @close="handleAutoStockDialogClose"
+    >
+      <el-alert
+        type="warning"
+        :closable="false"
+        style="margin-bottom: 16px"
+        show-icon
+      >
+        提示：生成数量不超过 200 个，库存编号将按前缀 + 序号自动生成
+      </el-alert>
+
+      <el-form
+        ref="autoStockFormRef"
+        :model="autoStockForm"
+        :rules="autoStockRules"
+        label-width="100px"
+        label-position="right"
+      >
+        <el-form-item label="礼物编号">
+          <el-input v-model="autoStockForm.giftCode" disabled />
+        </el-form-item>
+        <el-form-item label="礼物名称">
+          <el-input v-model="autoStockForm.giftName" disabled />
+        </el-form-item>
+        <el-form-item label="金额面值" prop="amount">
+          <el-input-number
+            v-model="autoStockForm.amount"
+            :min="1"
+            :max="999999"
+            controls-position="right"
+            style="width: 100%"
+            placeholder="请输入每个库存的面值"
+          />
+        </el-form-item>
+        <el-form-item label="生成数量" prop="num">
+          <el-input-number
+            v-model="autoStockForm.num"
+            :min="1"
+            :max="200"
+            controls-position="right"
+            style="width: 100%"
+            placeholder="1-200"
+          />
+        </el-form-item>
+        <el-form-item label="编号前缀" prop="stockNoPrefix">
+          <el-input
+            v-model="autoStockForm.stockNoPrefix"
+            placeholder="如：GIFT2024，将生成 GIFT2024001、GIFT2024002..."
+            maxlength="20"
+            clearable
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="autoStockDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="autoStockLoading" @click="handleAutoStockSubmit">生成库存</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -388,9 +466,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getDictOptions, getDictLabel } from '@/utils/dict'
-import { useRouter } from 'vue-router' // ✅ 新增导入
+import { useRouter } from 'vue-router'
 
-const router = useRouter() // ✅ 实例化
+const router = useRouter()
+
 // 📊 表格状态
 const tableData = ref([])
 const loading = ref(false)
@@ -398,7 +477,7 @@ const loading = ref(false)
 // 📦 跳转库存页
 const handleGoStock = (row) => {
   router.push({
-    path: '/stock', // ⚠️ 请确保路由配置中库存页的 path 与此一致
+    path: '/stock',
     query: { giftCode: row.giftCode }
   })
 }
@@ -453,6 +532,34 @@ const rules = computed(() => ({
 const descDialogVisible = ref(false)
 const currentGiftId = ref(null)
 const descList = ref([])
+
+// 🎁 自动生成库存状态 (新增)
+const autoStockDialogVisible = ref(false)
+const autoStockFormRef = ref()
+const autoStockLoading = ref(false)
+const autoStockForm = reactive({
+  id: null,
+  giftCode: '',
+  giftName: '',
+  amount: null,
+  num: null,
+  stockNoPrefix: ''
+})
+
+const autoStockRules = {
+  amount: [
+    { required: true, message: '请输入金额面值', trigger: 'blur' },
+    { type: 'number', min: 1, message: '面值必须大于 0', trigger: 'blur' }
+  ],
+  num: [
+    { required: true, message: '请输入生成数量', trigger: 'blur' },
+    { type: 'number', min: 1, max: 200, message: '数量必须在 1-200 之间', trigger: 'blur' }
+  ],
+  stockNoPrefix: [
+    { required: true, message: '请输入库存编号前缀', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_-]+$/, message: '仅支持字母、数字、下划线、短横线', trigger: 'blur' }
+  ]
+}
 
 // 🔍 查询列表
 const handleQuery = async () => {
@@ -623,7 +730,7 @@ const openDescDialog = async (row) => {
     const res = await request.post('/gift/infoList.do', { id: row.id })
     if (res.data && Array.isArray(res.data)) {
       descList.value = res.data.map(item => ({
-        id: item.id || null,           // 🔑 描述记录的唯一ID
+        id: item.id || null,           // 🔑 描述记录的唯一 ID
         languageCode: item.languageCode || '',
         value: item.value || '',
         saving: false,                 // 行级保存 loading
@@ -661,22 +768,22 @@ const handleSaveDescItem = async (row, index) => {
     return ElMessage.warning('请输入描述内容')
   }
   if (!currentGiftId.value) {
-    return ElMessage.error('礼物ID丢失，请关闭重试')
+    return ElMessage.error('礼物 ID 丢失，请关闭重试')
   }
 
   row.saving = true
   try {
-    // ✅ 调用 saveInfo.do，id 参数传礼物ID (不是描述ID)
+    // ✅ 调用 saveInfo.do，id 参数传礼物 ID (不是描述 ID)
     await request.post('/gift/saveInfo.do', {
-      id: currentGiftId.value,        // 🔑 关键：传礼物ID
+      id: currentGiftId.value,        // 🔑 关键：传礼物 ID
       languageCode: row.languageCode.trim(),
       info: row.value.trim()
     })
 
     ElMessage.success(`${row.id ? '更新' : '新增'}成功`)
 
-    // ✅ 如果是新增行，后端会返回新记录的id，但接口未定义返回值，需重新拉取或乐观更新
-    // 这里采用乐观更新：新增行标记一个临时id，实际使用中以礼物ID+languageCode为唯一键
+    // ✅ 如果是新增行，后端会返回新记录的 id，但接口未定义返回值，需重新拉取或乐观更新
+    // 这里采用乐观更新：新增行标记一个临时 id，实际使用中以礼物 ID+languageCode 为唯一键
     if (!row.id) {
       row.id = `temp_${Date.now()}_${index}` // 临时标记，避免重复新增
     }
@@ -696,7 +803,7 @@ const handleDeleteDescItem = async (row, index) => {
       await ElMessageBox.confirm('确定要删除该语言描述吗？', '提示', { type: 'warning' })
       row.deleting = true
 
-      // ✅ 调用 deleteInfo.do，id 参数传描述记录的ID
+      // ✅ 调用 deleteInfo.do，id 参数传描述记录的 ID
       await request.post('/gift/deleteInfo.do', { id: row.id })
 
       ElMessage.success('删除成功')
@@ -718,6 +825,52 @@ const handleDeleteDescItem = async (row, index) => {
 const handleDescDialogClose = () => {
   descList.value = []
   currentGiftId.value = null
+}
+
+// 🎁 自动生成库存相关方法 (新增)
+
+// 🔹 打开自动生成库存弹窗
+const openAutoStockDialog = (row) => {
+  Object.assign(autoStockForm, {
+    id: row.id,
+    giftCode: row.giftCode,
+    giftName: row.giftInfo || row.giftCode,
+    amount: row.price || null,  // 默认填入礼物价格
+    num: null,
+    stockNoPrefix: `${row.giftCode.toUpperCase()}_${Date.now().toString().slice(-6)}` // 默认前缀
+  })
+  autoStockDialogVisible.value = true
+  setTimeout(() => autoStockFormRef.value?.clearValidate(), 100)
+}
+
+// 🔹 提交自动生成库存
+const handleAutoStockSubmit = async () => {
+  if (!autoStockFormRef.value) return
+  await autoStockFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    autoStockLoading.value = true
+    try {
+      // ✅ 调用 /gift/autoCreateStock.do 接口
+      await request.post('/gift/autoCreateStock.do', {
+        id: autoStockForm.id,
+        amount: autoStockForm.amount,
+        num: autoStockForm.num,
+        stockNoPrefix: autoStockForm.stockNoPrefix.trim()
+      })
+
+      ElMessage.success(`成功生成 ${autoStockForm.num} 个库存`)
+      autoStockDialogVisible.value = false
+      handleQuery() // 刷新表格更新库存数量
+    } catch (error) {
+      ElMessage.error('生成失败：' + (error.message || '未知错误'))
+    } finally {
+      autoStockLoading.value = false
+    }
+  })
+}
+
+const handleAutoStockDialogClose = () => {
+  autoStockFormRef.value?.resetFields()
 }
 
 onMounted(() => {

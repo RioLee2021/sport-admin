@@ -64,15 +64,19 @@
           <template #default="{ row }"><el-tag :type="getMemberStatTag(row.stat)" size="small">{{ getDictLabel('MemberStat', row.stat) }}</el-tag></template>
         </el-table-column>
         <el-table-column label="等级" prop="level" width="70" align="center" />
-        <el-table-column label="金币" prop="coins" width="80" align="center" />
+        <el-table-column label="金币" prop="coins" width="80" align="center">
+          <template #default="{ row }"><span class="coin-text">{{ row.coins }}</span></template>
+        </el-table-column>
         <el-table-column label="直播间ID" prop="roomId" width="100" align="center" />
         <el-table-column label="创建时间" prop="createAt" width="180" align="center">
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="220" align="center" fixed="right">
+        <el-table-column label="操作" width="280" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="warning" link size="small" :loading="resetLoadingMap[row.id]" @click="handleResetPassword(row)">重置密码</el-button>
+            <!-- ✅ 新增：加减款按钮 -->
+            <el-button type="success" link size="small" @click="openCoinDialog(row)">加减款</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -97,13 +101,13 @@
           <el-form-item label="会员账号" prop="username"><el-input v-model="form.username" placeholder="请输入账号" clearable /></el-form-item>
           <el-form-item label="手机号" prop="phoneNumber"><el-input v-model="form.phoneNumber" placeholder="请输入手机号" clearable /></el-form-item>
           <el-form-item label="登录密码" prop="password">
-            <el-input v-model="form.password" type="password" placeholder="请输入密码 (MD5加密)" show-password clearable />
+            <el-input v-model="form.password" type="password" placeholder="请输入密码 (MD5 加密)" show-password clearable />
           </el-form-item>
         </template>
 
         <!-- 编辑专属字段 -->
         <template v-if="isEdit">
-          <el-form-item label="会员ID"><el-input v-model="form.id" disabled /></el-form-item>
+          <el-form-item label="会员 ID"><el-input v-model="form.id" disabled /></el-form-item>
           <el-row :gutter="20">
             <el-col :span="12"><el-form-item label="会员金币" prop="coins"><el-input-number v-model="form.coins" :min="0" controls-position="right" style="width: 100%" /></el-form-item></el-col>
             <el-col :span="12"><el-form-item label="会员等级" prop="level"><el-input-number v-model="form.level" :min="0" controls-position="right" style="width: 100%" /></el-form-item></el-col>
@@ -160,6 +164,64 @@
         <el-button type="info" @click="resetPwdDialogVisible = false">我知道了</el-button>
       </template>
     </el-dialog>
+
+    <!-- 💰 会员加减款对话框 (新增) -->
+    <el-dialog
+      v-model="coinDialogVisible"
+      title="会员加减款"
+      width="450px"
+      :close-on-click-modal="false"
+      @close="handleCoinDialogClose"
+    >
+      <el-alert
+        type="info"
+        :closable="false"
+        style="margin-bottom: 16px"
+        show-icon
+      >
+        提示：正数表示加款，负数表示减款（如：-100 表示扣除 100 金币）
+      </el-alert>
+      <el-form ref="coinFormRef" :model="coinForm" :rules="coinRules" label-width="100px" label-position="right">
+        <el-form-item label="会员账号">
+          <el-input v-model="coinForm.username" disabled />
+        </el-form-item>
+        <el-form-item label="当前金币">
+          <el-input :value="coinForm.coins" disabled>
+            <template #append>金币</template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="变动金额" prop="amount">
+          <el-input-number
+            v-model="coinForm.amount"
+            :min="-999999"
+            :max="999999"
+            :precision="0"
+            controls-position="right"
+            style="width: 100%"
+            placeholder="正数加款，负数减款"
+          >
+            <template #append>金币</template>
+          </el-input-number>
+        </el-form-item>
+        <el-form-item label="操作备注" prop="remark">
+          <el-input
+            v-model="coinForm.remark"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入加减款原因备注"
+            maxlength="200"
+            show-word-limit
+            clearable
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="coinDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="coinLoading" @click="handleCoinSubmit">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -197,6 +259,33 @@ const form = reactive({
 const resetPwdDialogVisible = ref(false)
 const newPwdValue = ref('')
 const resetTargetUsername = ref('')
+
+// 💰 加减款对话框状态 (新增)
+const coinDialogVisible = ref(false)
+const coinFormRef = ref()
+const coinLoading = ref(false)
+const coinForm = reactive({
+  id: null,
+  username: '',
+  coins: 0,
+  amount: null,
+  remark: ''
+})
+
+const coinRules = {
+  amount: [
+    { required: true, message: '请输入变动金额', trigger: 'blur' },
+    { validator: (rule, value, callback) => {
+        if (value === null || value === undefined || value === 0) {
+          callback(new Error('变动金额不能为 0'))
+        } else {
+          callback()
+        }
+      }, trigger: 'blur'
+    }
+  ],
+  remark: [{ required: true, message: '请输入操作备注', trigger: 'blur' }]
+}
 
 // 校验规则 (动态切换)
 const rules = computed(() => ({
@@ -322,6 +411,51 @@ const copyPassword = async () => {
   }
 }
 
+// 💰 加减款功能 (新增)
+
+// 打开加减款弹窗
+const openCoinDialog = (row) => {
+  Object.assign(coinForm, {
+    id: row.id,
+    username: row.username,
+    coins: row.coins,
+    amount: null,
+    remark: ''
+  })
+  coinDialogVisible.value = true
+  setTimeout(() => coinFormRef.value?.clearValidate(), 100)
+}
+
+// 提交加减款
+const handleCoinSubmit = async () => {
+  if (!coinFormRef.value) return
+  await coinFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    coinLoading.value = true
+    try {
+      // ✅ 调用 /member/manualChangeCoins.do 接口
+      await request.post('/member/manualChangeCoins.do', {
+        id: coinForm.id,
+        amount: coinForm.amount,  // 正数加款，负数减款
+        remark: coinForm.remark
+      })
+
+      const action = coinForm.amount > 0 ? '加款' : '减款'
+      ElMessage.success(`${action}${Math.abs(coinForm.amount)}金币成功`)
+      coinDialogVisible.value = false
+      handleQuery() // 刷新表格更新金币余额
+    } catch (e) {
+      ElMessage.error('操作失败：' + (e.message || '未知错误'))
+    } finally {
+      coinLoading.value = false
+    }
+  })
+}
+
+const handleCoinDialogClose = () => {
+  coinFormRef.value?.resetFields()
+}
+
 // 🗑️ 删除
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定要删除会员 "${row.username}" 吗？此操作不可恢复！`, '警告', { type: 'warning' })
@@ -375,4 +509,7 @@ onMounted(() => handleQuery())
   .pwd-box { margin: 16px 0; :deep(.el-input__inner) { font-family: 'Courier New', monospace; letter-spacing: 1px; background-color: #f5f7fa; } }
   :deep(.el-alert) { padding: 8px 12px; font-size: 13px; }
 }
+
+/* 🔑 加减款弹窗样式 */
+:deep(.coin-text) { font-weight: 500; color: #e6a23c; }
 </style>

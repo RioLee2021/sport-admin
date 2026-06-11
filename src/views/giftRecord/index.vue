@@ -56,6 +56,16 @@
 
     <!-- 📋 表格区域 -->
     <el-card class="table-card" shadow="hover">
+      <template #header>
+        <div class="card-header">
+          <span class="title">兑换记录列表</span>
+          <div class="header-actions">
+            <!-- ✅ 新增：校验票据按钮 -->
+            <el-button type="info" :icon="Key" @click="openValidDialog">校验票据</el-button>
+          </div>
+        </div>
+      </template>
+
       <el-table
         v-loading="loading"
         :data="tableData"
@@ -136,13 +146,124 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 🔑 校验票据对话框 (修正版) -->
+    <el-dialog
+      v-model="validDialogVisible"
+      title="校验票据"
+      width="550px"
+      :close-on-click-modal="false"
+      @close="handleValidDialogClose"
+    >
+      <el-alert
+        type="info"
+        :closable="false"
+        style="margin-bottom: 16px"
+        show-icon
+      >
+        提示：输入单号、内容和手机号进行票据校验
+      </el-alert>
+
+      <!-- 校验输入表单 -->
+      <el-form
+        v-if="!validResult"
+        ref="validFormRef"
+        :model="validForm"
+        :rules="validRules"
+        label-width="100px"
+        label-position="right"
+      >
+        <el-form-item label="单号" prop="orderNo">
+          <el-input
+            v-model="validForm.orderNo"
+            placeholder="请输入订单编号"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="礼物内容" prop="giftContent">
+          <el-input
+            v-model="validForm.giftContent"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入礼物内容"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="手机号" prop="phoneNumber">
+          <el-input
+            v-model="validForm.phoneNumber"
+            placeholder="请输入会员手机号"
+            clearable
+          />
+        </el-form-item>
+      </el-form>
+
+      <!-- 校验结果显示 + 凭证输入 -->
+      <div v-else>
+        <el-descriptions
+          :column="1"
+          border
+          style="margin-bottom: 16px"
+        >
+          <el-descriptions-item label="订单号">{{ validResult.orderNo }}</el-descriptions-item>
+          <el-descriptions-item label="礼物编号">{{ validResult.giftCode }}</el-descriptions-item>
+          <el-descriptions-item label="礼物说明">{{ validResult.giftInfo }}</el-descriptions-item>
+          <el-descriptions-item label="价格">{{ validResult.price }} 金币</el-descriptions-item>
+          <el-descriptions-item label="会员名称">{{ validResult.username }}</el-descriptions-item>
+          <el-descriptions-item label="手机号">{{ validResult.phoneNumber }}</el-descriptions-item>
+          <el-descriptions-item label="库存编号">{{ validResult.stockNo }}</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="getStatTag(validResult.stat)" size="small">
+              {{ getDictLabel('GiftRecordStat', validResult.stat) }}
+            </el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <!-- ✅ 手动输入凭证号 -->
+        <el-form label-width="100px" label-position="right">
+          <el-form-item label="凭证号" prop="relatedNo" required>
+            <el-input
+              v-model="validForm.relatedNo"
+              placeholder="请输入凭证号（如：物流单号/转账记录等）"
+              clearable
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="validDialogVisible = false">取消</el-button>
+          <!-- 校验按钮 -->
+          <el-button
+            v-if="!validResult"
+            type="primary"
+            :loading="validLoading"
+            @click="handleValidSubmit"
+          >
+            校验票据
+          </el-button>
+          <!-- 确认票据按钮 -->
+          <el-button
+            v-if="validResult"
+            type="success"
+            :loading="confirmLoading"
+            @click="handleConfirmSubmit"
+          >
+            确认票据
+          </el-button>
+          <!-- 重新校验按钮 -->
+          <el-button v-if="validResult" @click="resetValid">重新校验</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, Refresh, Key } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getDictOptions, getDictLabel } from '@/utils/dict'
 
@@ -173,6 +294,27 @@ const actionType = ref('deliver') // 'deliver' | 'cancel' | 'refund'
 const actionForm = reactive({ id: null, orderNo: '', remark: '' })
 const actionRules = {
   remark: [{ required: true, message: '请输入操作备注', trigger: 'blur' }]
+}
+
+// 🔑 校验票据弹窗状态 (修正版)
+const validDialogVisible = ref(false)
+const validFormRef = ref()
+const validLoading = ref(false)
+const confirmLoading = ref(false)
+const validResult = ref(null) // 校验成功后返回的记录
+
+const validForm = reactive({
+  orderNo: '',          // 单号
+  giftContent: '',      // 礼物内容
+  phoneNumber: '',      // 手机号
+  relatedNo: ''         // 凭证号（手动输入）
+})
+
+const validRules = {
+  orderNo: [{ required: true, message: '请输入单号', trigger: 'blur' }],
+  giftContent: [{ required: true, message: '请输入礼物内容', trigger: 'blur' }],
+  phoneNumber: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
+  relatedNo: [{ required: true, message: '请输入凭证号', trigger: 'blur' }]
 }
 
 // ✅ 动态弹窗标题
@@ -254,6 +396,93 @@ const handleDialogClose = () => {
   actionFormRef.value?.resetFields()
 }
 
+// 🔑 校验票据相关方法 (修正版)
+
+// 打开校验弹窗
+const openValidDialog = () => {
+  validForm.orderNo = ''
+  validForm.giftContent = ''
+  validForm.phoneNumber = ''
+  validForm.relatedNo = ''
+  validResult.value = null
+  validDialogVisible.value = true
+  setTimeout(() => validFormRef.value?.clearValidate(), 100)
+}
+
+// 提交校验
+const handleValidSubmit = async () => {
+  if (!validFormRef.value) return
+  await validFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    validLoading.value = true
+    try {
+      // ✅ 调用 /giftRecord/validSoldRecord.do 接口
+      // 参数：orderNo, giftContent, phoneNumber
+      const res = await request.post('/giftRecord/validSoldRecord.do', {
+        orderNo: validForm.orderNo.trim(),
+        giftContent: validForm.giftContent.trim(),
+        phoneNumber: validForm.phoneNumber.trim()
+      })
+
+      if (res.data) {
+        validResult.value = res.data
+        ElMessage.success('校验成功')
+      } else {
+        ElMessage.warning('未找到匹配的票据记录')
+      }
+    } catch (error) {
+      ElMessage.error('校验失败：' + (error.message || '未知错误'))
+    } finally {
+      validLoading.value = false
+    }
+  })
+}
+
+// 确认票据
+const handleConfirmSubmit = async () => {
+  // ✅ 单独校验凭证号
+  if (!validForm.relatedNo?.trim()) {
+    return ElMessage.warning('请输入凭证号')
+  }
+
+  if (!validResult.value) return
+  try {
+    await ElMessageBox.confirm('确定要确认该票据吗？', '提示', { type: 'warning' })
+    confirmLoading.value = true
+
+    // ✅ 调用 /giftRecord/confirmSoldRecord.do 接口
+    // 🔑 关键：提交 4 个参数
+    await request.post('/giftRecord/confirmSoldRecord.do', {
+      orderNo: validForm.orderNo.trim(),        // 单号（锁定）
+      giftContent: validForm.giftContent.trim(), // 内容（锁定）
+      phoneNumber: validForm.phoneNumber.trim(), // 手机号（锁定）
+      relatedNo: validForm.relatedNo.trim()      // 凭证号（手动输入）
+    })
+
+    ElMessage.success('票据确认成功')
+    validDialogVisible.value = false
+    handleQuery() // 刷新表格更新状态
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('确认失败：' + (error.message || '未知错误'))
+    }
+  } finally {
+    confirmLoading.value = false
+  }
+}
+
+// 重新校验
+const resetValid = () => {
+  validResult.value = null
+  validForm.relatedNo = ''  // 清空凭证号
+  validFormRef.value?.clearValidate()
+}
+
+const handleValidDialogClose = () => {
+  validFormRef.value?.resetFields()
+  validResult.value = null
+}
+
 onMounted(() => {
   handleQuery()
 })
@@ -262,7 +491,14 @@ onMounted(() => {
 <style scoped lang="scss">
 .gift-record-container { padding: 20px; }
 .search-card { margin-bottom: 20px; :deep(.el-card__body) { padding: 20px; } }
-.table-card { :deep(.el-card__body) { padding: 20px; } }
+.table-card {
+  :deep(.el-card__body) { padding: 20px; }
+  .card-header {
+    display: flex; justify-content: space-between; align-items: center;
+    .title { font-size: 16px; font-weight: bold; color: #303133; }
+    .header-actions { display: flex; gap: 10px; }
+  }
+}
 .search-buttons { display: flex; gap: 10px; justify-content: flex-end; width: 100%; }
-.dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
+.dialog-footer { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 </style>
