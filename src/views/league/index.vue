@@ -222,8 +222,8 @@ const loading = ref(false)
 
 // 🔍 查询参数
 const queryParams = reactive({
-  code: '',
-  sportType: '',
+  code: null,
+  sportType: null,
   page: 1,
   pageSize: 10
 })

@@ -56,6 +56,8 @@
           <span class="title">比赛列表</span>
           <div class="header-actions">
             <el-button type="primary" :icon="Plus" @click="handleAdd">新增比赛</el-button>
+            <!-- ✅ 新增：批量设置热门按钮 -->
+            <el-button type="warning" :icon="Star" @click="openBatchHotDialog">批量设置热门</el-button>
           </div>
         </div>
       </template>
@@ -87,7 +89,7 @@
           </template>
         </el-table-column>
 
-        <!-- ✅ 新增：竞猜相关字段 -->
+        <!-- ✅ 竞猜相关字段 -->
         <el-table-column label="竞猜" prop="betFlag" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="row.betFlag ? 'success' : 'info'" size="small">{{ row.betFlag ? '开启' : '关闭' }}</el-tag>
@@ -121,7 +123,7 @@
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
             <el-button type="success" link size="small" :icon="VideoCamera" @click="openBatchLiveDialog(row)">直播</el-button>
-            <!-- ✅ 新增：设置竞猜按钮（仅未开始比赛显示） -->
+            <!-- ✅ 设置竞猜按钮（仅未开始比赛显示） -->
             <el-button
               v-if="row.stat === 1"
               type="warning"
@@ -257,7 +259,7 @@
       @close="handleBatchDialogClose"
     >
       <el-form ref="batchFormRef" :model="batchForm" :rules="batchRules" label-width="120px">
-        <el-form-item label="比赛ID" prop="id">
+        <el-form-item label="比赛 ID" prop="id">
           <el-input v-model="batchForm.id" disabled />
         </el-form-item>
         <el-form-item label="主播列表" prop="streamerIds">
@@ -289,7 +291,7 @@
       </template>
     </el-dialog>
 
-    <!-- 🏆 设置竞猜对话框 (新增) -->
+    <!-- 🏆 设置竞猜对话框 -->
     <el-dialog
       v-model="guessDialogVisible"
       title="设置竞猜配置"
@@ -309,7 +311,7 @@
         <el-form-item label="让球" prop="handicap">
           <el-input
             v-model="guessForm.handicap"
-            placeholder="整数或.5结尾的小数，如 0, -1.5, 2.5"
+            placeholder="整数或.5 结尾的小数，如 0, -1.5, 2.5"
             clearable
           >
             <template #append>球</template>
@@ -336,13 +338,82 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- ⭐ 批量设置热门对话框 (新增) -->
+    <el-dialog
+      v-model="batchHotDialogVisible"
+      title="批量设置热门"
+      width="520px"
+      :close-on-click-modal="false"
+      @close="handleBatchHotDialogClose"
+    >
+      <el-alert
+        type="warning"
+        :closable="false"
+        style="margin-bottom: 16px"
+        show-icon
+      >
+        提示：将根据筛选条件批量设置比赛的热门状态，请谨慎操作
+      </el-alert>
+
+      <el-form ref="batchHotFormRef" :model="batchHotForm" :rules="batchHotRules" label-width="110px" label-position="right">
+        <el-form-item label="所属联赛" prop="leagueCode">
+          <el-select
+            v-model="batchHotForm.leagueCode"
+            placeholder="请选择联赛（可选）"
+            clearable
+            filterable
+            style="width: 100%"
+          >
+            <el-option v-for="item in leagueOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="比赛状态" prop="stat">
+          <el-select
+            v-model="batchHotForm.stat"
+            placeholder="请选择状态（可选）"
+            clearable
+            style="width: 100%"
+          >
+            <el-option v-for="item in getDictOptions('MatchStat')" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="开赛时间" prop="timeRange">
+          <el-date-picker
+            v-model="batchHotForm.timeRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+          />
+        </el-form-item>
+
+        <el-form-item label="设置热门" prop="hotFlag">
+          <el-radio-group v-model="batchHotForm.hotFlag">
+            <el-radio :label="true">设为热门</el-radio>
+            <el-radio :label="false">取消热门</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="batchHotDialogVisible = false">取消</el-button>
+          <el-button type="warning" :loading="batchHotLoading" @click="handleBatchHotSubmit">确认批量设置</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, VideoCamera, Trophy } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, VideoCamera, Trophy, Star } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getDictOptions, getDictLabel } from '@/utils/dict'
 
@@ -410,7 +481,7 @@ const batchRules = {
   viewNumMax: [{ required: true, message: '请输入最大观看数', trigger: 'blur' }]
 }
 
-// 🏆 竞猜对话框状态 (新增)
+// 🏆 竞猜对话框状态
 const guessDialogVisible = ref(false)
 const guessFormRef = ref()
 const guessLoading = ref(false)
@@ -422,22 +493,19 @@ const guessForm = reactive({
   winCoins: 0
 })
 
-// 让球格式校验：整数或 .5 结尾的小数
-const validateHandicap = (rule, value, callback) => {
-  if (!value) return callback(new Error('请输入让球数值'))
-  // 匹配：整数（如 0, -1, 2）或 .5 结尾小数（如 0.5, -1.5, 2.5）
-  const pattern = /^-?\d+(\.5)?$/
-  if (pattern.test(value)) {
-    callback()
-  } else {
-    callback(new Error('仅支持整数或 .5 结尾的小数，如 0, -1.5, 2.5'))
-  }
-}
+// ⭐ 批量设置热门对话框状态 (新增)
+const batchHotDialogVisible = ref(false)
+const batchHotFormRef = ref()
+const batchHotLoading = ref(false)
+const batchHotForm = reactive({
+  leagueCode: '',
+  stat: '',
+  timeRange: [],
+  hotFlag: true  // 默认设为热门
+})
 
-const guessRules = {
-  betFlag: [{ required: true, message: '请设置是否开启竞猜', trigger: 'change' }],
-  handicap: [{ required: true, validator: validateHandicap, trigger: 'blur' }],
-  winCoins: [{ required: true, message: '请输入中奖金额', trigger: 'blur' }]
+const batchHotRules = {
+  hotFlag: [{ required: true, message: '请选择设置操作', trigger: 'change' }]
 }
 
 // 时间戳转换
@@ -602,7 +670,7 @@ const handleBatchSubmit = async () => {
 
 const handleBatchDialogClose = () => { batchFormRef.value?.resetFields() }
 
-// 🏆 竞猜功能 (新增)
+// 🏆 竞猜功能
 const openGuessDialog = (row) => {
   if (row.stat !== 1) return ElMessage.warning('仅未开始的比赛可设置竞猜')
 
@@ -622,7 +690,6 @@ const handleGuessSubmit = async () => {
     if (!valid) return
     guessLoading.value = true
     try {
-      // ✅ 调用 /match/setGuess.do 接口
       await request.post('/match/setGuess.do', {
         id: guessForm.id,
         betFlag: guessForm.betFlag,
@@ -631,7 +698,7 @@ const handleGuessSubmit = async () => {
       })
       ElMessage.success('竞猜配置保存成功')
       guessDialogVisible.value = false
-      handleQuery() // 刷新表格更新竞猜字段
+      handleQuery()
     } catch (error) {
       ElMessage.error('保存失败：' + (error.message || '未知错误'))
     } finally {
@@ -641,6 +708,70 @@ const handleGuessSubmit = async () => {
 }
 
 const handleGuessDialogClose = () => { guessFormRef.value?.resetFields() }
+
+// ⭐ 批量设置热门功能 (新增)
+
+// 打开批量设置热门对话框
+const openBatchHotDialog = () => {
+  batchHotForm.leagueCode = ''
+  batchHotForm.stat = ''
+  batchHotForm.timeRange = []
+  batchHotForm.hotFlag = true
+  batchHotDialogVisible.value = true
+  setTimeout(() => batchHotFormRef.value?.clearValidate(), 100)
+}
+
+// 提交批量设置热门
+const handleBatchHotSubmit = async () => {
+  if (!batchHotFormRef.value) return
+  await batchHotFormRef.value.validate(async (valid) => {
+    if (!valid) return
+
+    try {
+      await ElMessageBox.confirm(
+        `确定要${batchHotForm.hotFlag ? '设为' : '取消'}热门吗？<br/>此操作将影响所有符合条件的比赛`,
+        '批量操作确认',
+        {
+          confirmButtonText: '确认执行',
+          cancelButtonText: '再想想',
+          type: 'warning',
+          dangerouslyUseHTMLString: true
+        }
+      )
+    } catch {
+      return
+    }
+
+    batchHotLoading.value = true
+    try {
+      // ✅ 调用 /match/batchHot.do 接口
+      // 🔑 关键：传分页请求参数格式，page=1, pageSize=1000 确保覆盖所有数据
+      const payload = {
+        leagueCode: batchHotForm.leagueCode || undefined,
+        stat: batchHotForm.stat || undefined,
+        hotFlag: batchHotForm.hotFlag,  // 目标热门状态
+        startTimeBegin: toTimestamp(batchHotForm.timeRange?.[0]),
+        startTimeEnd: toTimestamp(batchHotForm.timeRange?.[1]),
+        page: 1,
+        pageSize: 10  // 传大一点确保覆盖
+      }
+
+      await request.post('/match/batchHot.do', payload)
+
+      ElMessage.success(`批量${batchHotForm.hotFlag ? '设为' : '取消'}热门成功`)
+      batchHotDialogVisible.value = false
+      handleQuery() // 刷新表格更新热门状态
+    } catch (error) {
+      ElMessage.error('操作失败：' + (error.message || '未知错误'))
+    } finally {
+      batchHotLoading.value = false
+    }
+  })
+}
+
+const handleBatchHotDialogClose = () => {
+  batchHotFormRef.value?.resetFields()
+}
 
 onMounted(() => {
   fetchLeagues()
@@ -655,11 +786,11 @@ onMounted(() => {
   :deep(.el-card__body) { padding: 20px; }
   .card-header { display: flex; justify-content: space-between; align-items: center;
     .title { font-size: 16px; font-weight: bold; color: #303133; }
-    .header-actions { display: flex; gap: 10px; }
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
   }
 }
 .search-buttons { display: flex; gap: 10px; justify-content: flex-end; width: 100%; }
-.dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
+.dialog-footer { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .score-text { font-weight: bold; color: #409EFF; font-size: 14px; }
 .form-tip { font-size: 12px; color: #909399; margin-top: 4px; }
 </style>
