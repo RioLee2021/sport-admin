@@ -123,6 +123,8 @@
       :title="isEdit ? '编辑弹窗' : '新增弹窗'"
       width="700px"
       :close-on-click-modal="false"
+      :lock-scroll="false"
+      append-to-body
       @close="handleDialogClose"
     >
       <el-form
@@ -428,44 +430,23 @@ onMounted(() => handleQuery())
 
 .search-card {
   margin-bottom: 20px;
-
-  :deep(.el-card__body) {
-    padding: 20px;
-  }
+  :deep(.el-card__body) { padding: 20px; }
 }
 
 .table-card {
-  :deep(.el-card__body) {
-    padding: 20px;
-  }
-
+  :deep(.el-card__body) { padding: 20px; }
   .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    .title {
-      font-size: 16px;
-      font-weight: bold;
-      color: #303133;
-    }
+    display: flex; justify-content: space-between; align-items: center;
+    .title { font-size: 16px; font-weight: bold; color: #303133; }
   }
 }
 
-.search-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
+.search-buttons { display: flex; gap: 10px; }
+.dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
 
 /* 📝 富文本编辑器样式优化 */
 .editor-wrapper {
-  z-index: 1000; // 防止被 dialog 遮罩层遮挡
+  z-index: 1000;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
 }
@@ -480,41 +461,57 @@ onMounted(() => handleQuery())
 }
 
 :deep(.tox-statusbar) {
-  display: none; // 隐藏底部状态栏
+  display: none;
 }
 
 .content-preview {
-  display: flex;
-  align-items: center;
-  color: #606266;
-  font-size: 14px;
-  line-height: 1.5;
+  display: flex; align-items: center;
+  color: #606266; font-size: 14px; line-height: 1.5;
 }
 
-/* 🔐 富文本预览样式隔离 + 安全限制 */
+/* 🔐 富文本预览样式 */
 :deep(.rich-preview) {
-  max-height: 400px;
-  overflow-y: auto;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 4px;
-  border: 1px solid #e4e7ed;
+  max-height: 400px; overflow-y: auto;
+  padding: 12px; background: #f8f9fa;
+  border-radius: 4px; border: 1px solid #e4e7ed;
+  script, iframe, object, embed { display: none !important; }
+  img { max-width: 100%; height: auto; border-radius: 4px; }
+  p, ul, ol { margin: 8px 0; }
+}
 
-  /* 禁用危险标签 */
-  script, iframe, object, embed {
-    display: none !important;
-  }
+/* 🔧 修复 TinyMCE 文件上传按钮被遮挡 */
 
-  /* 图片自适应 */
-  img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 4px;
-  }
+/* 1. 允许对话框根据内容调整高度 */
+.tox .tox-dialog {
+  max-height: 90vh !important;
+  overflow: visible !important;
+}
 
-  /* 列表/段落间距 */
-  p, ul, ol {
-    margin: 8px 0;
-  }
+/* 2. 确保文件输入框可见 */
+.tox .tox-dialog input[type="file"] {
+  z-index: 10001 !important;
+  position: relative !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* 3. 修复对话框主体溢出 */
+.tox .tox-dialog__body {
+  overflow: visible !important;
+}
+
+/* 4. 确保上传区域不被裁剪 */
+.tox .tox-dialog-wrap {
+  overflow: visible !important;
+}
+
+/* 5. 提高文件按钮层级 */
+.mce-btn input[type="file"] {
+  z-index: 10002 !important;
+  position: relative !important;
+}
+/* 修复 TinyMCE 弹窗在 Element Plus Dialog 中无法滚动的问题 */
+body.tox-dialog__disable-scroll {
+  overflow: visible !important;
 }
 </style>
