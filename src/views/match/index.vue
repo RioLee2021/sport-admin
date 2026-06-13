@@ -423,8 +423,8 @@ const loading = ref(false)
 
 // 🔍 查询参数
 const queryParams = reactive({
-  leagueCode: '',
-  stat: '',
+  leagueCode: 'FIFA World Cup',
+  stat: undefined,
   hotFlag: undefined,
   timeRange: [],
   page: 1,
@@ -517,7 +517,7 @@ const handleQuery = async () => {
   try {
     const payload = {
       leagueCode: queryParams.leagueCode || undefined,
-      stat: queryParams.stat || undefined,
+      stat: queryParams.stat,
       hotFlag: queryParams.hotFlag,
       startTimeBegin: toTimestamp(queryParams.timeRange?.[0]),
       startTimeEnd: toTimestamp(queryParams.timeRange?.[1]),
