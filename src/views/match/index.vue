@@ -498,8 +498,8 @@ const batchHotDialogVisible = ref(false)
 const batchHotFormRef = ref()
 const batchHotLoading = ref(false)
 const batchHotForm = reactive({
-  leagueCode: '',
-  stat: '',
+  leagueCode: 'FIFA World Cup',
+  stat: undefined,
   timeRange: [],
   hotFlag: true  // 默认设为热门
 })
@@ -713,8 +713,8 @@ const handleGuessDialogClose = () => { guessFormRef.value?.resetFields() }
 
 // 打开批量设置热门对话框
 const openBatchHotDialog = () => {
-  batchHotForm.leagueCode = ''
-  batchHotForm.stat = ''
+  batchHotForm.leagueCode = 'FIFA World Cup'
+  batchHotForm.stat = undefined
   batchHotForm.timeRange = []
   batchHotForm.hotFlag = true
   batchHotDialogVisible.value = true
