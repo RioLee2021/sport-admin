@@ -66,8 +66,8 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="商户ID" prop="merchantId" width="100" align="center" />
-        <el-table-column label="最后登录IP" prop="lastLoginIp" width="140" align="center" />
+        <el-table-column label="商户 ID" prop="merchantId" width="100" align="center" />
+        <el-table-column label="最后登录 IP" prop="lastLoginIp" width="140" align="center" />
         <el-table-column label="最后登录地区" prop="lastLoginRegion" width="140" show-overflow-tooltip />
 
         <el-table-column label="最后登录时间" prop="lastLoginAt" width="180" align="center">
@@ -77,11 +77,13 @@
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
         </el-table-column>
 
-        <el-table-column label="操作" width="280" align="center" fixed="right">
+        <el-table-column label="操作" width="340" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="success" link size="small" @click="handleAuthConfig(row)">权限配置</el-button>
-            <el-button type="warning" link size="small" @click="handleResetOtp(row)">重置OTP</el-button>
+            <el-button type="warning" link size="small" @click="handleResetOtp(row)">重置 OTP</el-button>
+            <!-- ✅ 新增：重置密码按钮 -->
+            <el-button type="info" link size="small" @click="handleResetPassword(row)">重置密码</el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -114,7 +116,7 @@
         label-width="120px"
         label-position="right"
       >
-        <el-form-item label="用户ID" prop="id" v-if="isEdit">
+        <el-form-item label="用户 ID" prop="id" v-if="isEdit">
           <el-input v-model="editForm.id" disabled />
         </el-form-item>
 
@@ -143,7 +145,7 @@
           <el-input
             v-model="editForm.password"
             type="password"
-            placeholder="请输入密码（6-20位）"
+            placeholder="请输入密码（6-20 位）"
             maxlength="20"
             show-password
             clearable
@@ -165,14 +167,14 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="商户ID" prop="merchantId">
+        <el-form-item label="商户 ID" prop="merchantId">
           <el-input-number
             v-model="editForm.merchantId"
             :min="0"
             :precision="0"
             controls-position="right"
             style="width: 100%"
-            placeholder="请输入商户ID"
+            placeholder="请输入商户 ID"
           />
         </el-form-item>
 
@@ -189,18 +191,18 @@
             v-model="editForm.loginWhiteList"
             type="textarea"
             :rows="3"
-            placeholder="请输入登录白名单IP，多个用英文逗号分隔（如：192.168.1.1,10.0.0.1）"
+            placeholder="请输入登录白名单 IP，多个用英文逗号分隔（如：192.168.1.1,10.0.0.1）"
             maxlength="500"
             show-word-limit
             clearable
           />
-          <div class="form-tip">多个IP地址用英文逗号分隔，留空表示不限制</div>
+          <div class="form-tip">多个 IP 地址用英文逗号分隔，留空表示不限制</div>
         </el-form-item>
 
         <el-divider content-position="left" v-if="isEdit">登录信息（只读）</el-divider>
         <el-row :gutter="20" v-if="isEdit">
           <el-col :span="12">
-            <el-form-item label="最后登录IP">
+            <el-form-item label="最后登录 IP">
               <el-input v-model="editForm.lastLoginIp" disabled />
             </el-form-item>
           </el-col>
@@ -248,7 +250,6 @@
           style="margin-bottom: 20px"
         />
 
-        <!-- ✅ 移除 check-strictly，启用默认级联勾选 -->
         <el-tree
           ref="authTreeRef"
           :data="authTreeData"
@@ -281,7 +282,7 @@
       </template>
     </el-dialog>
 
-    <!-- 🔐 重置OTP弹窗 -->
+    <!-- 🔐 重置 OTP 弹窗 -->
     <el-dialog
       v-model="otpDialogVisible"
       title="重置谷歌验证器"
@@ -309,6 +310,29 @@
       </div>
       <template #footer>
         <el-button type="primary" @click="otpDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 🔑 重置密码结果弹窗 (新增) -->
+    <el-dialog
+      v-model="resetPwdDialogVisible"
+      title="密码重置成功"
+      width="420px"
+      :close-on-click-modal="false"
+      @close="newPwdValue = ''"
+    >
+      <div class="pwd-result">
+        <p>用户 <strong>{{ resetPwdAccount }}</strong> 的新密码：</p>
+        <div class="pwd-box">
+          <el-input v-model="newPwdValue" readonly type="text" style="width: 100%" />
+        </div>
+        <el-alert type="warning" :closable="false" style="margin-top: 12px">
+          请妥善保管该密码，关闭弹窗后将无法再次查看。
+        </el-alert>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="copyNewPassword" style="margin-right: 10px">📋 复制密码</el-button>
+        <el-button type="info" @click="resetPwdDialogVisible = false">我知道了</el-button>
       </template>
     </el-dialog>
   </div>
@@ -383,7 +407,7 @@ const editRules = {
     { required: true, message: '请选择角色类型', trigger: 'change' }
   ],
   merchantId: [
-    { required: true, message: '请输入商户ID', trigger: 'blur' }
+    { required: true, message: '请输入商户 ID', trigger: 'blur' }
   ]
 }
 
@@ -403,6 +427,11 @@ const currentUserId = ref(null)
 const authTreeData = ref([])
 const availableUriList = ref([])
 const currentUriList = ref([])
+
+// 🔑 重置密码弹窗状态 (新增)
+const resetPwdDialogVisible = ref(false)
+const newPwdValue = ref('')
+const resetPwdAccount = ref('')
 
 const treeProps = {
   children: 'children',
@@ -501,7 +530,6 @@ const handleAuthConfig = async (row) => {
   authSubmitLoading.value = true
 
   try {
-    // ✅ 接口参数改为 id
     const [availableRes, currentRes] = await Promise.all([
       request.post('/user/uriList.do', { id: row.id }),
       request.post('/user/currentUriList.do', { id: row.id })
@@ -565,7 +593,6 @@ const handleAuthSubmit = async () => {
   const allCheckedKeys = [...new Set([...checkedKeys, ...halfCheckedKeys])]
 
   try {
-    // ✅ 接口参数改为 id
     await request.post('/user/submitAuthConfig.do', {
       id: currentUserId.value,
       menuIds: allCheckedKeys
@@ -579,7 +606,7 @@ const handleAuthSubmit = async () => {
 
 const handleDialogClose = () => editFormRef.value?.resetFields()
 
-/** 🔐 重置 OTP（增加二次确认） */
+/** 🔐 重置 OTP */
 const handleResetOtp = (row) => {
   ElMessageBox.confirm(
     `确定要重置用户"${row.account}"的谷歌验证器吗？重置后需重新扫码绑定。`,
@@ -609,6 +636,56 @@ const copyOtpCode = async () => {
     ElMessage.success('复制成功')
   } catch {
     ElMessage.error('复制失败，请手动长按选择复制')
+  }
+}
+
+/** 🔑 重置密码功能 (新增) */
+const handleResetPassword = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要重置用户"${row.account}"的登录密码吗？<br/>重置后原密码将失效，新密码将弹窗显示。`,
+      '重置密码确认',
+      {
+        confirmButtonText: '确定重置',
+        cancelButtonText: '取消',
+        type: 'warning',
+        dangerouslyUseHTMLString: true
+      }
+    )
+
+    // ✅ 调用 /user/resetPassword.do 接口
+    const res = await request.post('/user/resetPassword.do', { id: row.id })
+
+    // 显示新密码弹窗
+    resetPwdAccount.value = row.account
+    newPwdValue.value = res.data || res || '获取失败'
+    resetPwdDialogVisible.value = true
+    ElMessage.success('密码重置成功')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('重置失败：' + (error.message || '未知错误'))
+    }
+  }
+}
+
+/** 📋 复制新密码到剪贴板 */
+const copyNewPassword = async () => {
+  if (!newPwdValue.value) return ElMessage.warning('密码为空')
+
+  try {
+    await navigator.clipboard.writeText(newPwdValue.value)
+    ElMessage.success('✅ 密码已复制到剪贴板')
+  } catch {
+    // 降级方案
+    const textarea = document.createElement('textarea')
+    textarea.value = newPwdValue.value
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-9999px'
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    ElMessage.success('✅ 密码已复制')
   }
 }
 
@@ -649,5 +726,16 @@ onMounted(() => handleQuery())
     .otp-code { font-family: monospace; font-size: 20px; font-weight: bold; color: #303133; letter-spacing: 1px; }
   }
   .otp-tip { font-size: 13px; color: #909399; text-align: center; line-height: 1.6; }
+}
+
+/* 🔑 重置密码弹窗样式 */
+:deep(.pwd-result) {
+  .pwd-box { margin: 16px 0; :deep(.el-input__inner) {
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1px;
+    background-color: #f5f7fa;
+    font-weight: 500;
+  }}
+  :deep(.el-alert) { padding: 8px 12px; font-size: 13px; }
 }
 </style>

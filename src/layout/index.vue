@@ -7,10 +7,6 @@
         <span v-else>SA</span>
       </div>
 
-<!--      <div class="collapse-btn" @click="toggleCollapse">
-        <el-icon><component :is="isCollapse ? 'Expand' : 'Fold'" /></el-icon>
-      </div>-->
-
       <el-menu
         :default-active="activeMenu"
         router
@@ -57,6 +53,8 @@
         </div>
         <div class="header-right">
           <span class="username">{{ userStore.userInfo?.name || '管理员' }}</span>
+          <!-- ✅ 新增：重置密码按钮 -->
+          <el-button type="warning" link size="small" @click="handleResetPassword">重置密码</el-button>
           <el-button type="danger" link size="small" @click="handleLogout">退出</el-button>
         </div>
       </el-header>
@@ -65,6 +63,29 @@
         <router-view />
       </el-main>
     </el-container>
+
+    <!-- 🔑 重置密码结果弹窗 -->
+    <el-dialog
+      v-model="resetPwdDialogVisible"
+      title="密码重置成功"
+      width="420px"
+      :close-on-click-modal="false"
+      @close="newPwdValue = ''"
+    >
+      <div class="pwd-result">
+        <p>您的新密码已生成：</p>
+        <div class="pwd-box">
+          <el-input v-model="newPwdValue" readonly type="text" style="width: 100%" />
+        </div>
+        <el-alert type="warning" :closable="false" style="margin-top: 12px">
+          请妥善保管该密码，关闭弹窗后将无法再次查看。
+        </el-alert>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="copyPassword" style="margin-right: 10px">📋 复制密码</el-button>
+        <el-button type="info" @click="resetPwdDialogVisible = false">我知道了</el-button>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 
@@ -72,7 +93,8 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import request from '@/utils/request'
 
 const route = useRoute()
 const router = useRouter()
@@ -89,6 +111,56 @@ const formatIconName = (icon) => {
   return icon
 }
 
+// 🔑 重置密码弹窗状态
+const resetPwdDialogVisible = ref(false)
+const newPwdValue = ref('')
+
+// 🔑 重置密码功能
+const handleResetPassword = async () => {
+  try {
+    await ElMessageBox.confirm('确定要重置登录密码吗？重置后原密码将失效。', '提示', {
+      confirmButtonText: '确定重置',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    // ✅ 调用 /pub/resetMyPassword.do 接口
+    const res = await request.post('/pub/resetMyPassword.do', {})
+
+    // 显示新密码弹窗
+    newPwdValue.value = res.data || res || '获取失败'
+    resetPwdDialogVisible.value = true
+    ElMessage.success('密码重置成功')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('重置失败：' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 📋 复制密码到剪贴板
+const copyPassword = async () => {
+  if (!newPwdValue.value) return ElMessage.warning('密码为空')
+
+  try {
+    // 优先使用 Clipboard API
+    await navigator.clipboard.writeText(newPwdValue.value)
+    ElMessage.success('✅ 密码已复制到剪贴板')
+  } catch {
+    // 降级方案：兼容旧浏览器
+    const textarea = document.createElement('textarea')
+    textarea.value = newPwdValue.value
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-9999px'
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    ElMessage.success('✅ 密码已复制')
+  }
+}
+
+// 🔚 退出登录
 const handleLogout = async () => {
   await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
     confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
@@ -111,13 +183,6 @@ const handleLogout = async () => {
     height: 60px; line-height: 60px; text-align: center;
     color: #fff; font-size: 18px; font-weight: bold; background: #2b3649;
     flex-shrink: 0;
-  }
-
-  .collapse-btn {
-    height: 40px; display: flex; align-items: center; justify-content: center;
-    color: #bfcbd9; cursor: pointer; transition: all 0.3s; flex-shrink: 0;
-    &:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
-    .el-icon { font-size: 18px; }
   }
 
   // 📜 菜单容器允许垂直滚动
@@ -168,15 +233,14 @@ const handleLogout = async () => {
     color: #a0a9b9;
     height: 38px;
     line-height: 38px;
-    margin: 0 8px 8px 8px; // 按钮间距
-    border-radius: 8px;     // 圆角按钮感
+    margin: 0 8px 8px 8px;
+    border-radius: 8px;
     padding-left: 16px !important;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid rgba(255, 255, 255, 0.04);
     position: relative;
     overflow: hidden;
 
-    // 悬停微动效
     &:hover {
       background-color: #409EFF;
       color: #fff;
@@ -185,7 +249,6 @@ const handleLogout = async () => {
       border-color: transparent;
     }
 
-    // 激活态：渐变+光晕
     &.is-active {
       background: linear-gradient(90deg, #409EFF, #66b1ff);
       color: #fff;
@@ -232,7 +295,20 @@ const handleLogout = async () => {
     &:hover { color: #409EFF; }
   }
 }
-.header-right { display: flex; align-items: center; gap: 15px }
-.username { color: #666; font-size: 14px }
+.header-right {
+  display: flex; align-items: center; gap: 15px;
+  .username { color: #666; font-size: 14px }
+}
 .main { padding: 20px; background: #f0f2f5; overflow: auto }
+
+/* 🔑 重置密码弹窗样式 */
+:deep(.pwd-result) {
+  .pwd-box { margin: 16px 0; :deep(.el-input__inner) {
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1px;
+    background-color: #f5f7fa;
+    font-weight: 500;
+  }}
+  :deep(.el-alert) { padding: 8px 12px; font-size: 13px; }
+}
 </style>
