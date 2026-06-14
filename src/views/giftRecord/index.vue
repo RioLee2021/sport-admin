@@ -80,6 +80,9 @@
         <el-table-column label="价格" prop="price" width="100" align="center">
           <template #default="{ row }">{{ row.price }} 金币</template>
         </el-table-column>
+        <el-table-column label="面值" prop="giftValue" width="100" align="center">
+          <template #default="{ row }">{{ row.giftValue }} THB</template>
+        </el-table-column>
         <el-table-column label="库存编号" prop="stockNo" width="130" align="center" />
         <el-table-column label="会员名称" prop="username" width="120" align="center" />
         <el-table-column label="手机号" prop="phoneNumber" width="130" align="center" />
@@ -208,7 +211,7 @@
           <el-descriptions-item label="订单号">{{ validResult.orderNo }}</el-descriptions-item>
           <el-descriptions-item label="礼物编号">{{ validResult.giftCode }}</el-descriptions-item>
           <el-descriptions-item label="礼物说明">{{ validResult.giftInfo }}</el-descriptions-item>
-          <el-descriptions-item label="价格">{{ validResult.price }} 金币</el-descriptions-item>
+          <el-descriptions-item label="面值">{{ validResult.giftValue }} THB</el-descriptions-item>
           <el-descriptions-item label="会员名称">{{ validResult.username }}</el-descriptions-item>
           <el-descriptions-item label="手机号">{{ validResult.phoneNumber }}</el-descriptions-item>
           <el-descriptions-item label="库存编号">{{ validResult.stockNo }}</el-descriptions-item>

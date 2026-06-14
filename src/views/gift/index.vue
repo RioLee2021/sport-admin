@@ -119,7 +119,9 @@
         <el-table-column label="价格" prop="price" width="90" align="center">
           <template #default="{ row }">{{ row.price }} 金币</template>
         </el-table-column>
-
+        <el-table-column label="价值" prop="giftValue" width="90" align="center">
+          <template #default="{ row }">{{ row.giftValue }} THB</template>
+        </el-table-column>
         <el-table-column label="封面" width="100" align="center">
           <template #default="{ row }">
             <el-image
@@ -190,7 +192,7 @@
             <el-button type="success" link size="small" @click="handleGoStock(row)">库存</el-button>
             <!-- ✅ 自动生成库存按钮（仅 giftType=1 显示） -->
             <el-button
-              v-if="row.giftType === 1"
+              v-if="row.giftType === 1 || row.giftType === 3"
               type="primary"
               link
               size="small"
@@ -259,6 +261,14 @@
         <el-form-item label="价格 (金币)" prop="price">
           <el-input-number
             v-model="form.price"
+            :min="0"
+            controls-position="right"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="价值 (THB)" prop="giftValue">
+          <el-input-number
+            v-model="form.giftValue"
             :min="0"
             controls-position="right"
             style="width: 100%"
@@ -420,14 +430,13 @@
         <el-form-item label="礼物名称">
           <el-input v-model="autoStockForm.giftName" disabled />
         </el-form-item>
-        <el-form-item label="金额面值" prop="amount">
+        <el-form-item label="价值(THB)" prop="giftValue">
           <el-input-number
-            v-model="autoStockForm.amount"
-            :min="1"
-            :max="999999"
+            v-model="autoStockForm.giftValue"
             controls-position="right"
             style="width: 100%"
-            placeholder="请输入每个库存的面值"
+
+            disabled
           />
         </el-form-item>
         <el-form-item label="生成数量" prop="num">
@@ -509,6 +518,7 @@ const form = reactive({
   giftCode: '',
   giftType: '0',
   price: 0,
+  giftValue: 0,
   coverUrl: '',
   stockCnt: 0,
   soldCnt: 0,
@@ -541,16 +551,12 @@ const autoStockForm = reactive({
   id: null,
   giftCode: '',
   giftName: '',
-  amount: null,
+  giftValue: null,
   num: null,
   stockNoPrefix: ''
 })
 
 const autoStockRules = {
-  amount: [
-    { required: true, message: '请输入金额面值', trigger: 'blur' },
-    { type: 'number', min: 1, message: '面值必须大于 0', trigger: 'blur' }
-  ],
   num: [
     { required: true, message: '请输入生成数量', trigger: 'blur' },
     { type: 'number', min: 1, max: 200, message: '数量必须在 1-200 之间', trigger: 'blur' }
@@ -660,6 +666,7 @@ const handleSubmit = async () => {
           id: form.id,
           coverUrl: form.coverUrl,
           price: form.price,
+          giftValue: form.giftValue,
           eachMaxBuy: form.eachMaxBuy,
           totalMaxBuy: form.totalMaxBuy,
           hotFlag: form.hotFlag,
@@ -669,6 +676,7 @@ const handleSubmit = async () => {
           giftCode: form.giftCode,
           giftType: form.giftType,
           price: form.price,
+          giftValue: form.giftValue,
           coverUrl: form.coverUrl,
           eachMaxBuy: form.eachMaxBuy,
           totalMaxBuy: form.totalMaxBuy,
@@ -835,7 +843,7 @@ const openAutoStockDialog = (row) => {
     id: row.id,
     giftCode: row.giftCode,
     giftName: row.giftInfo || row.giftCode,
-    amount: row.price || null,  // 默认填入礼物价格
+    giftValue: row.giftValue,  // 默认填入礼物价格
     num: null,
     stockNoPrefix: `${row.giftCode.toUpperCase()}_${Date.now().toString().slice(-6)}` // 默认前缀
   })
@@ -853,7 +861,6 @@ const handleAutoStockSubmit = async () => {
       // ✅ 调用 /gift/autoCreateStock.do 接口
       await request.post('/gift/autoCreateStock.do', {
         id: autoStockForm.id,
-        amount: autoStockForm.amount,
         num: autoStockForm.num,
         stockNoPrefix: autoStockForm.stockNoPrefix.trim()
       })
