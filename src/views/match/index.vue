@@ -63,7 +63,7 @@
       </template>
 
       <el-table v-loading="loading" :data="tableData" border stripe style="width: 100%">
-        <el-table-column type="index" label="序号" width="60" align="center" />
+        <el-table-column label="点击次数" width="80" prop="hitCnt" align="center" />
 
         <el-table-column label="主队" prop="homeTeamName" width="120" align="center">
           <template #default="{ row }">{{ row.homeTeamName }}</template>
