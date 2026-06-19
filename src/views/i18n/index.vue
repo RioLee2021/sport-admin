@@ -118,13 +118,85 @@
       </el-row>
     </el-card>
 
+    <!-- ✅ 新增：AWS 用量展示面板 -->
+    <el-card class="aws-card" shadow="hover" v-if="awsUsage">
+      <template #header>
+        <div class="aws-header">
+          <span class="title">☁️ AWS 翻译用量</span>
+          <div class="aws-actions">
+            <el-button
+              type="primary"
+              link
+              size="small"
+              :icon="Refresh"
+              :loading="awsLoading"
+              @click="handleSyncAwsQuota"
+            >
+              同步用量
+            </el-button>
+            <el-tag
+              :type="getAwsTagType()"
+              size="small"
+              style="margin-left: 8px"
+            >
+              {{ awsUsage.warning ? '⚠️ 预警' : awsUsage.exceeded ? '🔴 超额' : '✅ 正常' }}
+            </el-tag>
+          </div>
+        </div>
+      </template>
+
+      <el-row :gutter="20">
+        <el-col :span="6">
+          <div class="aws-stat">
+            <div class="aws-label">API 调用次数</div>
+            <div class="aws-value">{{ awsUsage.apiCalls?.toLocaleString() ?? '-' }}</div>
+          </div>
+        </el-col>
+        <el-col :span="6">
+          <div class="aws-stat">
+            <div class="aws-label">已用字符数</div>
+            <div class="aws-value">{{ awsUsage.usedChars?.toLocaleString() ?? '-' }}</div>
+          </div>
+        </el-col>
+        <el-col :span="6">
+          <div class="aws-stat">
+            <div class="aws-label">免费额度</div>
+            <div class="aws-value">{{ awsUsage.freeQuota?.toLocaleString() ?? '-' }}</div>
+          </div>
+        </el-col>
+        <el-col :span="6">
+          <div class="aws-stat">
+            <div class="aws-label">剩余字符数</div>
+            <div class="aws-value" :class="{ 'text-danger': awsUsage.remainingChars < awsUsage.freeQuota * 0.2 }">
+              {{ awsUsage.remainingChars?.toLocaleString() ?? '-' }}
+            </div>
+          </div>
+        </el-col>
+      </el-row>
+
+      <!-- 用量进度条 -->
+      <div class="aws-progress">
+        <el-progress
+          :percentage="parseFloat(awsUsage.usagePercent) || 0"
+          :color="getProgressColor()"
+          :format="() => `${awsUsage.usagePercent}%`"
+          :stroke-width="12"
+        />
+        <div class="progress-tip">
+          <span v-if="awsUsage.warning" class="tip-warning">⚠️ 用量已超过 80%，请注意控制</span>
+          <span v-else-if="awsUsage.exceeded" class="tip-error">🔴 已超出免费额度，可能产生费用</span>
+          <span v-else class="tip-normal">✅ 用量正常，可继续使用</span>
+        </div>
+      </div>
+    </el-card>
+
     <!-- 📋 表格区域 -->
     <el-card class="table-card" shadow="hover">
       <template #header>
         <div class="card-header">
           <span class="title">国际化字典列表</span>
           <div class="header-actions">
-            <el-button type="warning" :icon="Refresh" @click="handleSync">同步基础数据</el-button>
+            <el-button type="warning" :icon="Refresh" @click="handleSync">AWS 翻译</el-button>
             <el-button type="success" :icon="Download" @click="openDownloadDialog">下载字典</el-button>
             <el-button type="info" :icon="Upload" @click="openUploadDialog">上传字典</el-button>
             <el-button type="primary" :icon="Plus" @click="handleAdd">新增字典</el-button>
@@ -461,6 +533,10 @@ const loading = ref(false)
 // 📈 字典统计状态
 const stsDataList = ref([])
 
+// ☁️ AWS 用量状态 (新增)
+const awsUsage = ref(null)
+const awsLoading = ref(false)
+
 // 🔍 查询参数
 const queryParams = reactive({
   dictType: null,
@@ -546,14 +622,54 @@ const fetchStsData = async () => {
   }
 }
 
+// ☁️ 获取 AWS 用量数据 (新增)
+const fetchAwsUsage = async () => {
+  try {
+    const res = await request.post('/i18n/awsUsage.do', {})
+    if (res.data) {
+      awsUsage.value = res.data
+    }
+  } catch (error) {
+    console.error('获取 AWS 用量失败:', error)
+  }
+}
+
+// ☁️ 同步 AWS 用量 (新增)
+const handleSyncAwsQuota = async () => {
+  awsLoading.value = true
+  try {
+    await request.post('/i18n/syncAwsQuota.do', {})
+    ElMessage.success('用量同步成功')
+    await fetchAwsUsage() // 同步后刷新数据
+  } catch (error) {
+    ElMessage.error('同步失败：' + (error.message || '未知错误'))
+  } finally {
+    awsLoading.value = false
+  }
+}
+
+// 🎨 AWS 用量辅助方法 (新增)
+const getAwsTagType = () => {
+  if (!awsUsage.value) return 'info'
+  if (awsUsage.value.exceeded) return 'danger'
+  if (awsUsage.value.warning) return 'warning'
+  return 'success'
+}
+
+const getProgressColor = () => {
+  if (!awsUsage.value) return '#409EFF'
+  const percent = parseFloat(awsUsage.value.usagePercent) || 0
+  if (percent >= 100) return '#F56C6C'  // 红色 - 超额
+  if (percent >= 80) return '#E6A23C'   // 橙色 - 预警
+  return '#67C23A'                      // 绿色 - 正常
+}
+
 // 🔍 判断是否为数量较少的项
 const isCountLow = (item, field) => {
   const counts = [item.zhCnt || 0, item.enCnt || 0, item.thCnt || 0]
   const min = Math.min(...counts)
   const max = Math.max(...counts)
-  // 如果最大值和最小值相等，说明都相等，不高亮
   if (min === max) return false
-  // 如果当前值等于最小值且小于最大值，则高亮
   return item[field] < max
 }
 
@@ -655,7 +771,7 @@ const handleSync = () => {
 /** ✅ 确认同步 */
 const confirmSync = async () => {
   if (syncForm.dictType == null) {
-    return ElMessage.warning('请选择需要同步的字典类型')
+    return ElMessage.warning('请选择需要翻译的字典类型')
   }
 
   syncLoading.value = true
@@ -688,7 +804,6 @@ const openDownloadDialog = () => {
 
 /** 📥 确认下载 */
 const confirmDownload = async () => {
-
   downloadLoading.value = true
   try {
     const res = await request.post('/i18n/downloadDictData.do', {
@@ -800,7 +915,6 @@ const handleDialogClose = () => editFormRef.value?.resetFields()
 
 /** 🔍 点击统计项高亮表格 */
 const highlightByLanguage = (dictType, lang) => {
-  // 设置查询条件并刷新表格
   queryParams.dictType = dictType
   queryParams.languageCode = lang === 'zh' ? 'zh' : lang === 'en' ? 'en' : 'th'
   pagination.page = 1
@@ -809,7 +923,8 @@ const highlightByLanguage = (dictType, lang) => {
 }
 
 onMounted(() => {
-  fetchStsData() // 加载统计
+  fetchStsData()
+  fetchAwsUsage() // ✅ 加载 AWS 用量
   handleQuery()
 })
 </script>
@@ -845,6 +960,57 @@ onMounted(() => {
       }
       .count-label { font-size: 12px; color: #909399; margin-bottom: 4px; }
       .count-value { font-size: 18px; font-weight: bold; color: #303133; }
+    }
+  }
+}
+
+/* ☁️ AWS 用量卡片样式 (新增) */
+.aws-card {
+  margin-bottom: 20px;
+  :deep(.el-card__body) { padding: 16px 20px; }
+
+  .aws-header {
+    display: flex; justify-content: space-between; align-items: center;
+    .title { font-size: 15px; font-weight: bold; color: #303133; }
+    .aws-actions { display: flex; align-items: center; }
+  }
+
+  .aws-stat {
+    text-align: center;
+    padding: 8px 0;
+
+    .aws-label {
+      font-size: 13px;
+      color: #909399;
+      margin-bottom: 4px;
+    }
+
+    .aws-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: #303133;
+
+      &.text-danger {
+        color: #F56C6C;
+      }
+    }
+  }
+
+  .aws-progress {
+    margin-top: 16px;
+
+    :deep(.el-progress-bar__outer) {
+      background: #f0f2f5;
+      border-radius: 6px;
+    }
+
+    .progress-tip {
+      margin-top: 8px;
+      font-size: 12px;
+
+      .tip-warning { color: #E6A23C; }
+      .tip-error { color: #F56C6C; font-weight: 500; }
+      .tip-normal { color: #67C23A; }
     }
   }
 }
