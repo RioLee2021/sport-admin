@@ -67,7 +67,7 @@
         <el-table-column label="金币" prop="coins" width="80" align="center">
           <template #default="{ row }"><span class="coin-text">{{ row.coins }}</span></template>
         </el-table-column>
-        <el-table-column label="直播间ID" prop="roomId" width="100" align="center" />
+        <el-table-column label="注册码" prop="inviteCode" width="100" align="center" />
         <el-table-column label="创建时间" prop="createAt" width="180" align="center">
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
         </el-table-column>

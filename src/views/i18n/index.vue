@@ -786,6 +786,7 @@ const confirmSync = async () => {
     ).then(() => {
       handleQuery()
       fetchStsData() // 刷新统计
+      fetchAwsUsage()
     })
   } catch (error) {
     ElMessage.error('同步失败：' + (error.message || '未知错误'))

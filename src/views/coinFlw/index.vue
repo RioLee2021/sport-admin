@@ -22,17 +22,6 @@
           </el-col>
 
           <el-col :span="6">
-            <el-form-item label="手机号" prop="phoneNumber">
-              <el-input
-                v-model="queryParams.phoneNumber"
-                placeholder="请输入手机号"
-                clearable
-                @keyup.enter="handleQuery"
-              />
-            </el-form-item>
-          </el-col>
-
-          <el-col :span="6">
             <el-form-item label="变更类型" prop="changeType">
               <el-select
                 v-model="queryParams.changeType"

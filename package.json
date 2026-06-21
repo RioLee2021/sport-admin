@@ -17,6 +17,7 @@
     "@tinymce/tinymce-vue": "^6.3.0",
     "axios": "^1.16.1",
     "blueimp-md5": "^2.19.0",
+    "echarts": "^6.1.0",
     "element-plus": "^2.14.0",
     "pinia": "^3.0.4",
     "qrcode": "^1.5.4",
