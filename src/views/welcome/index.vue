@@ -330,22 +330,85 @@ const renderDistChart = () => {
     }
   }
 
-  const data = getDistData()
+  let data = getDistData()
   const colors = ['#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE', '#3BA272', '#FC8452']
 
+  // ✅ 获取注册总数（用于僵尸会员分布显示）
+  const registerTotal = welcomeData.register?.total?.mbrCnt || 0
+
+  // ✅ 特殊处理：僵尸会员分布使用注册总数作为分母计算占比
+  if (activeDistTab.value === 'zombie' && registerTotal > 0) {
+    data = data.map(item => ({
+      ...item,
+      // 将原始数量转换为相对于注册总数的百分比值
+      value: (Number(item.value) / registerTotal) * 100,
+      // 保留原始数量用于 tooltip 显示
+      originalValue: item.value
+    }))
+  }
+
   const option = {
-    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    // ✅ 动态标题：僵尸会员分布显示注册总数
+    title: activeDistTab.value === 'zombie' ? {
+      text: `注册总数：${formatNumber(registerTotal)} 人`,
+      left: 'center',
+      top: '5%',
+      textStyle: { fontSize: 14, color: '#606266' },
+      subtextStyle: { fontSize: 11, color: '#909399' }
+    } : undefined,
+
+    tooltip: {
+      trigger: 'item',
+      formatter: (params) => {
+        // ✅ 僵尸会员 tooltip 显示原始数量 + 占比
+        if (activeDistTab.value === 'zombie' && params.data.originalValue !== undefined) {
+          return `${params.name}<br/>
+                  人数：${formatNumber(params.data.originalValue)} 人<br/>
+                  占比：${params.value.toFixed(2)}%<br/>
+                  <span style="font-size:10px;color:#909399">（占比 = 该分类 / 注册总数）</span>`
+        }
+        return `${params.name}: ${params.value} (${params.percent}%)`
+      }
+    },
     legend: { bottom: 0, type: 'scroll' },
     series: [{
       type: 'pie',
       radius: ['40%', '70%'],
       avoidLabelOverlap: true,
       itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
-      label: { show: false, position: 'center' },
-      emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
+      label: {
+        show: true,
+        position: 'center',
+        formatter: (params) => {
+          // ✅ 中心显示总占比（三个分类占比之和）
+          if (activeDistTab.value === 'zombie') {
+            const totalPercent = data.reduce((sum, item) => sum + item.value, 0)
+            return ''
+          }
+          return '{a|' + params.name + '}\n{b|' + params.value + '}'
+        },
+        rich: {
+          a: { fontSize: 12, color: '#606266', padding: [0, 0, 4, 0] },
+          b: { fontSize: 16, fontWeight: 'bold', color: '#303133' }
+        }
+      },
+      emphasis: {
+        label: {
+          show: true,
+          fontSize: 14,
+          fontWeight: 'bold',
+          formatter: (params) => {
+            if (activeDistTab.value === 'zombie' && params.data.originalValue !== undefined) {
+              return `${params.name}\n${params.data.originalValue} 人\n${params.value.toFixed(2)}%`
+            }
+            return params.name + '\n' + params.value
+          }
+        }
+      },
       data: data.map((item, idx) => ({
         name: item.name,
         value: item.value,
+        originalValue: item.originalValue, // 保留原始值
         itemStyle: { color: colors[idx % colors.length] }
       }))
     }]
@@ -441,6 +504,7 @@ onUnmounted(() => {
 
 .metric-card {
   border-radius: 12px;
+  margin-top: 12px;
   transition: transform 0.3s, box-shadow 0.3s;
   &:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12) !important; }
   :deep(.el-card__body) { padding: 16px; }
