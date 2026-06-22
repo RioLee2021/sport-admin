@@ -3,14 +3,24 @@
     <!-- 🎯 页面标题 + 刷新按钮 -->
     <div class="page-header">
       <h2 class="page-title">📊 数据看板</h2>
+      <div>
       <el-button
         type="primary"
         :icon="Refresh"
         :loading="refreshLoading"
-        @click="handleRefresh"
+        @click="fetchData"
       >
         刷新数据
       </el-button>
+      <el-button
+        type="danger"
+        :icon="Refresh"
+        :loading="refreshLoading"
+        @click="handleRefresh"
+      >
+        重载数据
+      </el-button>
+      </div>
     </div>
 
     <!-- 📈 核心指标卡片 (现共 8 个指标) -->
