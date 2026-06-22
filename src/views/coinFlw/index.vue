@@ -97,7 +97,6 @@
         <el-table-column type="index" label="序号" width="60" align="center" />
 
         <el-table-column label="会员账号" prop="username" width="120" align="center" />
-        <el-table-column label="手机号" prop="phoneNumber" width="130" align="center" />
 
         <el-table-column label="会员类型" prop="memberType" width="100" align="center">
           <template #default="{ row }">
