@@ -64,6 +64,8 @@
           </template>
         </el-table-column>
 
+        <el-table-column label="跳转链接" prop="bannerLink" width="180" align="center" />
+
         <el-table-column label="排序号" prop="sortNum" width="100" align="center" />
 
         <el-table-column label="状态" prop="disabled" width="100" align="center">
@@ -125,6 +127,14 @@
             v-model="form.languageCode"
             placeholder="请输入语言代码 (如 zh-CN, en-US)"
             :disabled="isEdit"
+            clearable
+          />
+        </el-form-item>
+
+        <el-form-item label="跳转链接" prop="bannerLink">
+          <el-input
+            v-model="form.bannerLink"
+            placeholder="请输入跳转链接"
             clearable
           />
         </el-form-item>
@@ -210,6 +220,7 @@ const form = reactive({
   id: null,
   languageCode: '',
   bannerUrl: '',
+  bannerLink: '',
   sortNum: 0
 })
 
@@ -221,6 +232,9 @@ const rules = {
   ],
   bannerUrl: [
     { required: true, message: '请上传轮播图片', trigger: 'change' }
+  ],
+  bannerLink: [
+    { required: true, message: '请输入跳转链接', trigger: 'blur' }
   ],
   sortNum: [
     { required: true, message: '请输入排序号', trigger: 'blur' }
@@ -261,6 +275,7 @@ const handleAdd = () => {
     id: null,
     languageCode: '',
     bannerUrl: '',
+    bannerLink:  '',
     sortNum: 0
   })
   dialogVisible.value = true
@@ -286,8 +301,8 @@ const handleSubmit = async () => {
     try {
       // 根据 Swagger 文档，编辑接口不需要 languageCode
       const submitData = isEdit.value
-        ? { id: form.id, bannerUrl: form.bannerUrl, sortNum: form.sortNum }
-        : { languageCode: form.languageCode, bannerUrl: form.bannerUrl, sortNum: form.sortNum }
+        ? { id: form.id, bannerUrl: form.bannerUrl, sortNum: form.sortNum,bannerLink: form.bannerLink }
+        : { languageCode: form.languageCode, bannerUrl: form.bannerUrl, sortNum: form.sortNum,bannerLink: form.bannerLink }
 
       const api = isEdit.value ? '/homeBanner/edit.do' : '/homeBanner/add.do'
       await request.post(api, submitData)
