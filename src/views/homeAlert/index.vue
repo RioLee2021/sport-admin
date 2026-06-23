@@ -105,6 +105,7 @@
         style="margin-top: 20px; justify-content: flex-end"
       />
     </el-card>
+
     <!-- 富文本预览弹窗 -->
     <el-dialog
       v-model="previewVisible"
@@ -117,6 +118,7 @@
         <el-button @click="previewVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+
     <!-- ✏️ 新增/编辑对话框 -->
     <el-dialog
       v-model="dialogVisible"
@@ -142,13 +144,22 @@
           />
         </el-form-item>
 
-        <!-- 📝 富文本编辑器 -->
+        <!-- 📝 wangEditor 富文本编辑器 -->
         <el-form-item label="弹窗内容" prop="content">
-          <Editor
-            v-if="dialogVisible"
-            v-model="form.content"
-            :init="EDITOR_INIT"
-          />
+          <div class="editor-wrapper" v-if="dialogVisible">
+            <Toolbar
+              :editor="editorRef"
+              :defaultConfig="toolbarConfig"
+              :mode="mode"
+            />
+            <Editor
+              v-model="form.content"
+              :defaultConfig="editorConfig"
+              :mode="mode"
+              @onCreated="handleCreated"
+              @onDestroyed="handleDestroyed"
+            />
+          </div>
         </el-form-item>
 
         <el-form-item label="排序号" prop="sortNum">
@@ -173,54 +184,14 @@
 </template>
 
 <script setup>
-// 🔑 全局注册 TinyMCE 许可证密钥（必须在 Editor 组件加载前执行）
-import tinymce from 'tinymce/tinymce'
-
-// 确保只注册一次
-if (!window.__tinymce_license_set) {
-  tinymce.overrideDefaults({ license_key: 'gpl' })
-  window.__tinymce_license_set = true
-}
-const EDITOR_INIT = {
-  // ✅ 仍保留此配置
-  license_key: 'gpl',
-
-  language: 'zh-CN',
-  base_url: 'https://cdn.tiny.cloud/1/no-api-key/tinymce/8/',
-  suffix: '',
-
-  height: 300,
-  menubar: false,
-  branding: false,
-
-  plugins: 'lists link image code',
-  toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link image | code',
-
-  content_style: 'body { font-family: -apple-system, sans-serif; font-size: 14px; line-height: 1.6; }',
-
-  images_upload_handler: async (blobInfo) => {
-    const formData = new FormData()
-    formData.append('file', blobInfo.blob(), blobInfo.filename())
-    const res = await request.post('/pub/uploadPic.do', formData, {
-      params: { type: 2 },
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-    return res.data?.url || res.data
-  }
-}
-import {ref, reactive, onMounted, shallowRef} from 'vue'
-import {ElMessage, ElMessageBox} from 'element-plus'
-import {Search, Refresh, Plus} from '@element-plus/icons-vue'
+import { ref, reactive, onMounted, shallowRef, onBeforeUnmount } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
-// ✅ 新增 TinyMCE 导入
-import Editor from '@tinymce/tinymce-vue'
-import 'tinymce/tinymce'           // 核心库
-import 'tinymce/icons/default'     // 图标
-import 'tinymce/themes/silver'     // 主题
-import 'tinymce/plugins/lists'     // 列表插件
-import 'tinymce/plugins/link'      // 链接插件
-import 'tinymce/plugins/image'     // 图片插件
-import 'tinymce/plugins/code'      // 代码插件
+
+// ✅ wangEditor 导入
+import '@wangeditor/editor/dist/css/style.css'
+import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 
 // 📊 表格状态
 const tableData = ref([])
@@ -272,10 +243,37 @@ const formRef = ref()
 const submitLoading = ref(false)
 const isEdit = ref(false)
 
-// 📝 富文本编辑器实例 (使用 shallowRef 避免性能损耗)
+// 📝 wangEditor 实例 (使用 shallowRef)
 const editorRef = shallowRef()
+const mode = ref('default') // 或 'simple'
 const toolbarConfig = {}
-const editorConfig = {placeholder: '请输入弹窗公告内容...'}
+const editorConfig = {
+  placeholder: '请输入弹窗公告内容...',
+  MENU_CONF: {
+    uploadImage: {
+      // ✅ 图片上传配置
+      async customUpload(file, insertFn) {
+        const formData = new FormData()
+        formData.append('file', file)
+
+        try {
+          const res = await request.post('/pub/uploadPic.do', formData, {
+            params: { type: 2 },
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+
+          const url = res.data?.url || res.data
+          if (url) {
+            // wangEditor 5 插入图片方式
+            insertFn(url, file.name, url)
+          }
+        } catch (error) {
+          ElMessage.error('图片上传失败')
+        }
+      }
+    }
+  }
+}
 
 // 表单数据
 const form = reactive({
@@ -288,10 +286,10 @@ const form = reactive({
 // 表单验证规则
 const rules = {
   languageCode: [
-    {required: true, message: '请输入语言代码', trigger: 'blur'}
+    { required: true, message: '请输入语言代码', trigger: 'blur' }
   ],
   content: [
-    {required: true, message: '请输入弹窗内容', trigger: 'blur'},
+    { required: true, message: '请输入弹窗内容', trigger: 'blur' },
     {
       validator: (rule, value, callback) => {
         // 过滤 HTML 标签和 &nbsp; 后检查是否为空
@@ -306,7 +304,7 @@ const rules = {
     }
   ],
   sortNum: [
-    {required: true, message: '请输入排序号', trigger: 'blur'}
+    { required: true, message: '请输入排序号', trigger: 'blur' }
   ]
 }
 
@@ -340,7 +338,7 @@ const handleReset = () => {
 /** ➕ 新增弹窗 */
 const handleAdd = () => {
   isEdit.value = false
-  Object.assign(form, {id: null, languageCode: '', content: '', sortNum: 0})
+  Object.assign(form, { id: null, languageCode: '', content: '', sortNum: 0 })
   dialogVisible.value = true
   setTimeout(() => formRef.value?.clearValidate(), 100)
 }
@@ -348,7 +346,7 @@ const handleAdd = () => {
 /** ✏️ 编辑弹窗 */
 const handleEdit = (row) => {
   isEdit.value = true
-  Object.assign(form, {...row})
+  Object.assign(form, { ...row })
   dialogVisible.value = true
   setTimeout(() => formRef.value?.clearValidate(), 100)
 }
@@ -388,25 +386,25 @@ const handleDelete = (row) => {
   ElMessageBox.confirm(
     `确定要删除该弹窗配置吗？此操作不可恢复！`,
     '警告',
-    {confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'}
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
   ).then(async () => {
     try {
-      await request.post('/homeAlert/delete.do', {id: row.id})
+      await request.post('/homeAlert/delete.do', { id: row.id })
       ElMessage.success('删除成功')
       handleQuery()
     } catch (error) {
       ElMessage.error('删除失败：' + (error.message || '未知错误'))
     }
-  }).catch(() => {
-  })
+  }).catch(() => {})
 }
 
 /** 🚫 关闭对话框清理 */
 const handleDialogClose = () => {
   formRef.value?.resetFields()
-  // ✅ 销毁编辑器实例，防止内存泄漏和重复渲染报错
-  if (editorRef.value) {
-    editorRef.value.destroy()
+  // ✅ 销毁编辑器实例
+  const editor = editorRef.value
+  if (editor) {
+    editor.destroy()
     editorRef.value = null
   }
 }
@@ -415,10 +413,18 @@ const handleDialogClose = () => {
 const handleCreated = (editor) => {
   editorRef.value = editor
 }
+
 const handleDestroyed = (editor) => {
   editorRef.value = null
 }
 
+// 🧹 组件卸载时销毁编辑器
+onBeforeUnmount(() => {
+  const editor = editorRef.value
+  if (editor) {
+    editor.destroy()
+  }
+})
 
 onMounted(() => handleQuery())
 </script>
@@ -444,24 +450,19 @@ onMounted(() => handleQuery())
 .search-buttons { display: flex; gap: 10px; }
 .dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
 
-/* 📝 富文本编辑器样式优化 */
+/* 📝 wangEditor 样式优化 */
 .editor-wrapper {
-  z-index: 1000;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
-}
+  z-index: 100;
 
-:deep(.tox-tinymce) {
-  border-radius: 4px;
-  border: 1px solid #dcdfe6;
-}
+  :deep(.w-e-toolbar) {
+    border-bottom: 1px solid #dcdfe6 !important;
+  }
 
-:deep(.tox-toolbar) {
-  background: #fff !important;
-}
-
-:deep(.tox-statusbar) {
-  display: none;
+  :deep(.w-e-text-container) {
+    min-height: 300px !important;
+  }
 }
 
 .content-preview {
@@ -477,41 +478,5 @@ onMounted(() => handleQuery())
   script, iframe, object, embed { display: none !important; }
   img { max-width: 100%; height: auto; border-radius: 4px; }
   p, ul, ol { margin: 8px 0; }
-}
-
-/* 🔧 修复 TinyMCE 文件上传按钮被遮挡 */
-
-/* 1. 允许对话框根据内容调整高度 */
-.tox .tox-dialog {
-  max-height: 90vh !important;
-  overflow: visible !important;
-}
-
-/* 2. 确保文件输入框可见 */
-.tox .tox-dialog input[type="file"] {
-  z-index: 10001 !important;
-  position: relative !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-/* 3. 修复对话框主体溢出 */
-.tox .tox-dialog__body {
-  overflow: visible !important;
-}
-
-/* 4. 确保上传区域不被裁剪 */
-.tox .tox-dialog-wrap {
-  overflow: visible !important;
-}
-
-/* 5. 提高文件按钮层级 */
-.mce-btn input[type="file"] {
-  z-index: 10002 !important;
-  position: relative !important;
-}
-/* 修复 TinyMCE 弹窗在 Element Plus Dialog 中无法滚动的问题 */
-body.tox-dialog__disable-scroll {
-  overflow: visible !important;
 }
 </style>
