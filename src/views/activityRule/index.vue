@@ -54,7 +54,10 @@
       <template #header>
         <div class="card-header">
           <span class="title">活动规则列表</span>
-          <el-button type="primary" :icon="Plus" @click="handleAdd">新增规则</el-button>
+          <div class="header-actions">
+            <el-button type="primary" :icon="Plus" @click="handleAdd">新增规则</el-button>
+            <el-button type="info" :icon="Connection" @click="handleSyncI18n">同步字典</el-button>
+          </div>
         </div>
       </template>
 
@@ -65,11 +68,11 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column type="index" label="序号" width="60" align="center" />
+        <el-table-column type="index" label="序号" width="60" align="center"/>
 
-        <el-table-column label="活动编码" prop="activityCode" width="120" show-overflow-tooltip />
+        <el-table-column label="活动编码" prop="activityCode" width="120" show-overflow-tooltip/>
 
-        <el-table-column label="活动名称" prop="activityName" min-width="150" show-overflow-tooltip />
+        <el-table-column label="活动名称" prop="activityName" min-width="150" show-overflow-tooltip/>
 
         <el-table-column label="周期类型" prop="periodic" width="120" align="center">
           <template #default="{ row }">
@@ -247,15 +250,33 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus } from '@element-plus/icons-vue'
+import {ref, reactive, onMounted} from 'vue'
+import {ElMessage, ElMessageBox} from 'element-plus'
+import {Search, Refresh, Plus, Connection} from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getDictOptions, getDictLabel } from '@/utils/dict'
+import {getDictOptions, getDictLabel} from '@/utils/dict'
 
 // 📊 表格状态
 const tableData = ref([])
 const loading = ref(false)
+
+/** 🌐 同步中英文字典 */
+const handleSyncI18n = async () => {
+  try {
+    await ElMessageBox.confirm('确定要同步活动配置的中英文字典吗？', '提示', {
+      confirmButtonText: '确认同步',
+      cancelButtonText: '取消',
+      type: 'info'
+    })
+    const res = await request.post('/activityRule/syncI18n.do', {})
+    const data = res.data || {}
+    ElMessage.success(`字典同步完成！新增：${data.addCount || 0}，更新：${data.syncCount || 0}`)
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('同步失败：' + (error.message || '未知错误'))
+    }
+  }
+}
 
 // 🔍 查询参数
 const queryParams = reactive({
@@ -295,27 +316,27 @@ const form = reactive({
 // 表单验证规则
 const rules = {
   activityCode: [
-    { required: true, message: '请输入活动编码', trigger: 'blur' },
-    { min: 1, max: 50, message: '长度在 1 到 50 个字符', trigger: 'blur' }
+    {required: true, message: '请输入活动编码', trigger: 'blur'},
+    {min: 1, max: 50, message: '长度在 1 到 50 个字符', trigger: 'blur'}
   ],
   activityName: [
-    { required: true, message: '请输入活动名称', trigger: 'blur' },
-    { min: 1, max: 100, message: '长度在 1 到 100 个字符', trigger: 'blur' }
+    {required: true, message: '请输入活动名称', trigger: 'blur'},
+    {min: 1, max: 100, message: '长度在 1 到 100 个字符', trigger: 'blur'}
   ],
   periodic: [
-    { required: true, message: '请选择周期类型', trigger: 'change' }
+    {required: true, message: '请选择周期类型', trigger: 'change'}
   ],
   activityCoins: [
-    { required: true, message: '请输入奖励金币', trigger: 'blur' },
-    { type: 'number', min: 0, message: '值不能为负数', trigger: 'blur' }
+    {required: true, message: '请输入奖励金币', trigger: 'blur'},
+    {type: 'number', min: 0, message: '值不能为负数', trigger: 'blur'}
   ],
   perLimit: [
-    { required: true, message: '请输入经验上限', trigger: 'blur' },
-    { type: 'number', min: 0, message: '值不能为负数', trigger: 'blur' }
+    {required: true, message: '请输入经验上限', trigger: 'blur'},
+    {type: 'number', min: 0, message: '值不能为负数', trigger: 'blur'}
   ],
   perTimes: [
-    { required: true, message: '请输入获得次数', trigger: 'blur' },
-    { type: 'number', min: 0, message: '值不能为负数', trigger: 'blur' }
+    {required: true, message: '请输入获得次数', trigger: 'blur'},
+    {type: 'number', min: 0, message: '值不能为负数', trigger: 'blur'}
   ]
 }
 
@@ -362,7 +383,7 @@ const handleAdd = () => {
 /** ✏️ 编辑规则 */
 const handleEdit = (row) => {
   isEdit.value = true
-  Object.assign(form, { ...row })
+  Object.assign(form, {...row})
   dialogVisible.value = true
   setTimeout(() => formRef.value?.clearValidate(), 100)
 }
@@ -382,7 +403,8 @@ const handleSubmit = async () => {
           periodic: form.periodic,
           activityCoins: form.activityCoins,
           perLimit: form.perLimit,
-          perTimes: form.perTimes
+          perTimes: form.perTimes,
+          disabled: form.disabled
         }
         : {
           activityCode: form.activityCode,
@@ -390,7 +412,8 @@ const handleSubmit = async () => {
           periodic: form.periodic,
           activityCoins: form.activityCoins,
           perLimit: form.perLimit,
-          perTimes: form.perTimes
+          perTimes: form.perTimes,
+          disabled: form.disabled
         }
 
       const api = isEdit.value ? '/activityRule/edit.do' : '/activityRule/add.do'
@@ -408,12 +431,13 @@ const handleSubmit = async () => {
 
 /** 🗑️ 删除规则 */
 const handleDelete = (row) => {
-  ElMessageBox.confirm(`确定要删除活动"${row.activityName}"的规则吗？`, '警告', { type: 'warning' })
+  ElMessageBox.confirm(`确定要删除活动"${row.activityName}"的规则吗？`, '警告', {type: 'warning'})
     .then(async () => {
-      await request.post('/activityRule/delete.do', { id: row.id })
+      await request.post('/activityRule/delete.do', {id: row.id})
       ElMessage.success('删除成功')
       handleQuery()
-    }).catch(() => {})
+    }).catch(() => {
+  })
 }
 
 const handleDialogClose = () => {
@@ -426,15 +450,53 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.activity-rule-container { padding: 20px; }
-.search-card { margin-bottom: 20px; :deep(.el-card__body) { padding: 20px; } }
-.table-card {
-  :deep(.el-card__body) { padding: 20px; }
-  .card-header { display: flex; justify-content: space-between; align-items: center;
-    .title { font-size: 16px; font-weight: bold; color: #303133; }
+.activity-rule-container {
+  padding: 20px;
+}
+
+.search-card {
+  margin-bottom: 20px;
+
+  :deep(.el-card__body) {
+    padding: 20px;
   }
 }
-.search-buttons { display: flex; gap: 10px; justify-content: flex-end; width: 100%; }
-.dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
-.form-tip { font-size: 12px; color: #909399; margin-top: 4px; line-height: 1.5; }
+
+.table-card {
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #303133;
+    }
+  }
+}
+
+.search-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.5;
+}
 </style>

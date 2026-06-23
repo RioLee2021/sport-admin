@@ -333,7 +333,8 @@ const handleSubmit = async () => {
         id: form.id,
         expValue: form.expValue,
         perLimit: form.perLimit,
-        perTimes: form.perTimes
+        perTimes: form.perTimes,
+        disabled: form.disabled,
       }
       await request.post('/expCfg/edit.do', payload)
       ElMessage.success('修改成功')
