@@ -30,7 +30,7 @@
             <el-form-item label="开赛时间" prop="timeRange">
               <el-date-picker
                 v-model="queryParams.timeRange"
-                type="daterange"
+                type="datetime"
                 range-separator="至"
                 start-placeholder="开始日期"
                 end-placeholder="结束日期"
