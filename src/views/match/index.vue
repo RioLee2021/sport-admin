@@ -30,7 +30,7 @@
             <el-form-item label="开赛时间" prop="timeRange">
               <el-date-picker
                 v-model="queryParams.timeRange"
-                type="datetime"
+                type="datetimerange"
                 range-separator="至"
                 start-placeholder="开始日期"
                 end-placeholder="结束日期"
@@ -104,7 +104,7 @@
           <template #default="{ row }">{{ row.winCoins ?? '-' }}</template>
         </el-table-column>
 
-        <el-table-column label="热门" prop="hotFlag" width="80" align="center">
+        <el-table-column label="EXP" prop="hotFlag" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="row.hotFlag ? 'warning' : 'info'">{{ row.hotFlag ? '是' : '否' }}</el-tag>
           </template>
@@ -129,7 +129,7 @@
           <template #default="{ row }">{{ $formatDateTime(row.startTime) }}</template>
         </el-table-column>
 
-        <el-table-column label="排序号" prop="sortNum" width="90" align="center" />
+        <el-table-column label="进度" prop="progress" width="100" align="center" />
         <el-table-column label="直播数" prop="liveCnt" width="90" align="center" />
 
         <el-table-column label="操作" width="240" align="center" fixed="right">
