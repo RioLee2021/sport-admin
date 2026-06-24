@@ -325,7 +325,7 @@ const renderCharts = () => {
   renderWeekChart()
 }
 
-/** 🥧 渲染分布图表 */
+/** 🥧 渲染分布图表（支持饼图/柱状图切换） */
 const renderDistChart = () => {
   if (!distChartRef.value) return
   if (!distChart) distChart = echarts.init(distChartRef.value)
@@ -333,7 +333,7 @@ const renderDistChart = () => {
   const getDistData = () => {
     switch (activeDistTab.value) {
       case 'level': return welcomeData.currMbrLevelDistribution
-      case 'active': return welcomeData.currActiveMbrDistribution
+      case 'active': return welcomeData.currActiveMbrDistribution  // ✅ 活动量用柱状图
       case 'zombie': return welcomeData.currZombieMbrDistribution
       case 'gift': return welcomeData.allGiftTypeDistribution
       default: return []
@@ -346,84 +346,117 @@ const renderDistChart = () => {
   // ✅ 获取注册总数（用于僵尸会员分布显示）
   const registerTotal = welcomeData.register?.total?.mbrCnt || 0
 
-  // ✅ 特殊处理：僵尸会员分布使用注册总数作为分母计算占比
-  if (activeDistTab.value === 'zombie' && registerTotal > 0) {
-    data = data.map(item => ({
-      ...item,
-      // 将原始数量转换为相对于注册总数的百分比值
-      value: (Number(item.value) / registerTotal) * 100,
-      // 保留原始数量用于 tooltip 显示
-      originalValue: item.value
-    }))
-  }
-
-  const option = {
-    // ✅ 动态标题：僵尸会员分布显示注册总数
-    title: activeDistTab.value === 'zombie' ? {
-      text: `注册总数：${formatNumber(registerTotal)} 人`,
-      left: 'center',
-      top: '5%',
-      textStyle: { fontSize: 14, color: '#606266' },
-      subtextStyle: { fontSize: 11, color: '#909399' }
-    } : undefined,
-
-    tooltip: {
-      trigger: 'item',
-      formatter: (params) => {
-        // ✅ 僵尸会员 tooltip 显示原始数量 + 占比
-        if (activeDistTab.value === 'zombie' && params.data.originalValue !== undefined) {
-          return `${params.name}<br/>
-                  人数：${formatNumber(params.data.originalValue)} 人<br/>
-                  占比：${params.value.toFixed(2)}%<br/>
-                  <span style="font-size:10px;color:#909399">（占比 = 该分类 / 注册总数）</span>`
-        }
-        return `${params.name}: ${params.value} (${params.percent}%)`
-      }
-    },
-    legend: { bottom: 0, type: 'scroll' },
-    series: [{
-      type: 'pie',
-      radius: ['40%', '70%'],
-      avoidLabelOverlap: true,
-      itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
-      label: {
-        show: true,
-        position: 'center',
-        formatter: (params) => {
-          // ✅ 中心显示总占比（三个分类占比之和）
-          if (activeDistTab.value === 'zombie') {
-            const totalPercent = data.reduce((sum, item) => sum + item.value, 0)
-            return ''
-          }
-          return '{a|' + params.name + '}\n{b|' + params.value + '}'
+  // ✅ 活动量分布使用柱状图，其他使用饼图
+  if (activeDistTab.value === 'active') {
+    // 📊 柱状图配置（与周注册图表一致）
+    const option = {
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      grid: { top: 10, bottom: 20, left: 40, right: 10, containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: data.map(item => item.name),
+        axisLabel: { rotate: 30, fontSize: 10, interval: 0 }
+      },
+      yAxis: {
+        type: 'value',
+        splitLine: { lineStyle: { type: 'dashed' } },
+        name: '人数',
+        nameTextStyle: { fontSize: 10, color: '#909399' }
+      },
+      series: [{
+        type: 'bar',
+        data: data.map(item => item.value),
+        barWidth: '40%',
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#83bff6' },
+            { offset: 0.5, color: '#188df0' },
+            { offset: 1, color: '#1858f0' }
+          ]),
+          borderRadius: [4, 4, 0, 0]
         },
-        rich: {
-          a: { fontSize: 12, color: '#606266', padding: [0, 0, 4, 0] },
-          b: { fontSize: 16, fontWeight: 'bold', color: '#303133' }
+        label: { show: true, position: 'top', fontSize: 10, formatter: '{c}' }
+      }]
+    }
+    distChart.setOption(option, true)
+  } else {
+    // 🥧 饼图配置（原有逻辑）
+
+    // 特殊处理：僵尸会员分布使用注册总数作为分母计算占比
+    if (activeDistTab.value === 'zombie' && registerTotal > 0) {
+      data = data.map(item => ({
+        ...item,
+        value: (Number(item.value) / registerTotal) * 100,
+        originalValue: item.value
+      }))
+    }
+
+    const option = {
+      title: activeDistTab.value === 'zombie' ? {
+        text: `注册总数：${formatNumber(registerTotal)} 人`,
+        left: 'center',
+        top: '5%',
+        textStyle: { fontSize: 14, color: '#606266' },
+        subtextStyle: { fontSize: 11, color: '#909399' }
+      } : undefined,
+
+      tooltip: {
+        trigger: 'item',
+        formatter: (params) => {
+          if (activeDistTab.value === 'zombie' && params.data.originalValue !== undefined) {
+            return `${params.name}<br/>
+                    人数：${formatNumber(params.data.originalValue)} 人<br/>
+                    占比：${params.value.toFixed(2)}%<br/>
+                    <span style="font-size:10px;color:#909399">（占比 = 该分类 / 注册总数）</span>`
+          }
+          return `${params.name}: ${params.value} (${params.percent}%)`
         }
       },
-      emphasis: {
+      legend: { bottom: 0, type: 'scroll' },
+      series: [{
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: true,
+        itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
         label: {
           show: true,
-          fontSize: 14,
-          fontWeight: 'bold',
+          position: 'center',
           formatter: (params) => {
-            if (activeDistTab.value === 'zombie' && params.data.originalValue !== undefined) {
-              return `${params.name}\n${params.data.originalValue} 人\n${params.value.toFixed(2)}%`
+            if (activeDistTab.value === 'zombie') {
+              const totalPercent = data.reduce((sum, item) => sum + item.value, 0)
+              return ''
             }
-            return params.name + '\n' + params.value
+            return '{a|' + params.name + '}\n{b|' + params.value + '}'
+          },
+          rich: {
+            a: { fontSize: 12, color: '#606266', padding: [0, 0, 4, 0] },
+            b: { fontSize: 16, fontWeight: 'bold', color: '#303133' }
           }
-        }
-      },
-      data: data.map((item, idx) => ({
-        name: item.name,
-        value: item.value,
-        originalValue: item.originalValue, // 保留原始值
-        itemStyle: { color: colors[idx % colors.length] }
-      }))
-    }]
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 14,
+            fontWeight: 'bold',
+            formatter: (params) => {
+              if (activeDistTab.value === 'zombie' && params.data.originalValue !== undefined) {
+                return `${params.name}\n${params.data.originalValue} 人\n${params.value.toFixed(2)}%`
+              }
+              return params.name + '\n' + params.value
+            }
+          }
+        },
+        data: data.map((item, idx) => ({
+          name: item.name,
+          value: item.value,
+          originalValue: item.originalValue,
+          itemStyle: { color: colors[idx % colors.length] }
+        }))
+      }]
+    }
+    distChart.setOption(option, true)
   }
-  distChart.setOption(option, true)
+
   distChart.resize()
 }
 
