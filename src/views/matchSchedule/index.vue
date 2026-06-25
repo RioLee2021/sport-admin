@@ -179,6 +179,8 @@
         <el-table-column label="操作" width="100" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-button type="primary" link size="small" @click="resetDefault(row)">恢复默认</el-button>
+            <el-button type="danger" link size="small" @click="copyToDefault(row)">批量排除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -362,6 +364,24 @@ const rules = {
     { type: 'number', min: 0, message: '值不能为负数', trigger: 'blur' }
   ],
   excludeLeagueCodes: [{ required: true, message: '请选择排除的联赛', trigger: 'change' }]
+}
+
+const resetDefault = (row) => {
+  ElMessageBox.confirm(`确定要恢复默认该记录吗？此操作不可恢复！`, '警告', { type: 'warning' })
+    .then(async () => {
+      await request.post('/matchSchedule/resetDefault.do', { id: row.id })
+      ElMessage.success('成功')
+      handleQuery()
+    }).catch(() => {})
+}
+
+const copyToDefault = (row) => {
+  ElMessageBox.confirm(`确定要批量排除吗？此操作不可恢复！`, '警告', { type: 'warning' })
+    .then(async () => {
+      await request.post('/matchSchedule/copyToDefault.do', { id: row.id })
+      ElMessage.success('成功')
+      handleQuery()
+    }).catch(() => {})
 }
 
 /** 🎨 解析联赛数组字符串 (JSONArray) */
