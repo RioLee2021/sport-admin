@@ -64,13 +64,11 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column type="index" label="序号" width="60" align="center" />
-
-        <el-table-column label="会员名称" prop="uername" min-width="120" show-overflow-tooltip />
+        <el-table-column label="会员名称" prop="username" width="100" show-overflow-tooltip />
         <el-table-column label="手机号" prop="phoneNumber" width="130" align="center" />
-        <el-table-column label="订单号" prop="orderNo" width="160" show-overflow-tooltip />
+        <el-table-column label="订单号" prop="orderNo" width="180" show-overflow-tooltip />
 
-        <el-table-column label="经验类型" prop="expType" width="110" align="center">
+        <el-table-column label="经验类型" prop="expType" width="130" align="center">
           <template #default="{ row }">
             <el-tag size="small" type="info">
               {{ getDictLabel('ExpType', row.expType) }}
@@ -78,7 +76,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="经验值" prop="expValue" width="90" align="center">
+        <el-table-column label="经验值" prop="expValue" width="80" align="center">
           <template #default="{ row }">
             <span class="exp-text">+{{ row.expValue ?? 0 }}</span>
           </template>
@@ -92,7 +90,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="创建人" prop="createBy" width="110" align="center" />
+        <el-table-column label="创建人" show-overflow-tooltip prop="createBy" width="110" align="center" />
         <el-table-column label="创建时间" prop="createAt" width="180" align="center">
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
         </el-table-column>
