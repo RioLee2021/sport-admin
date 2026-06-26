@@ -176,7 +176,7 @@
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
         </el-table-column>
 
-        <el-table-column label="操作" width="100" align="center" fixed="right">
+        <el-table-column label="操作" width="auto" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="primary" link size="small" @click="resetDefault(row)">恢复默认</el-button>
