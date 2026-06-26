@@ -57,7 +57,9 @@
       </template>
 
       <el-table v-loading="loading" :data="tableData" border stripe style="width: 100%">
-        <el-table-column type="index" label="序号" width="60" align="center" />
+        <el-table-column label="最后活跃时间" width="180" align="lastActivityTime">
+          <template #default="{row}">{{$formatDateTime(row.lastActivityTime)}}</template>
+        </el-table-column>
         <el-table-column label="账号" prop="username" width="120" align="center" />
         <el-table-column label="手机号" prop="phoneNumber" width="130" align="center" />
         <el-table-column label="类型" prop="memberType" width="90" align="center">
