@@ -12,12 +12,20 @@
         <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="任务名称" prop="taskName">
-              <el-input
+              <el-select
                 v-model="queryParams.taskName"
-                placeholder="请输入任务名称"
+                placeholder="请选择任务名称"
                 clearable
-                @keyup.enter="handleQuery"
-              />
+                filterable
+                style="width: 100%; min-width: 140px"
+              >
+                <el-option
+                  v-for="item in taskNameOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
 
@@ -43,7 +51,6 @@
             <div class="search-buttons">
               <el-button type="primary" :icon="Search" @click="handleQuery">查询</el-button>
               <el-button :icon="Refresh" @click="handleReset">重置</el-button>
-              <!-- ✅ 新增：清空日志按钮 -->
               <el-button type="danger" :icon="Delete" @click="handleClearLogs">清空日志</el-button>
             </div>
           </el-col>
@@ -109,7 +116,72 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
 import { getDictOptions, getDictLabel } from '@/utils/dict'
 
-// 🗑️ 清空日志（带确认弹窗 + 传查询条件）
+// 📊 表格状态
+const tableData = ref([])
+const loading = ref(false)
+
+// 🔍 查询参数
+const queryParams = reactive({
+  taskName: '',
+  taskResult: '',
+  page: 1,
+  pageSize: 10
+})
+
+// 📄 分页参数
+const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
+const queryFormRef = ref()
+
+// 📥 任务名称下拉选项
+const taskNameOptions = ref([])
+
+// 🏷️ 辅助方法：执行结果标签颜色映射
+const getTaskResultTag = (val) => {
+  const map = { '0': 'danger', '1': 'success', '2': 'warning' }
+  return map[val] || 'info'
+}
+
+/** 📥 获取任务名称下拉列表 */
+const fetchTaskNameOptions = async () => {
+  try {
+    const res = await request.post('/taskLog/taskNameOpts.do', {})
+    taskNameOptions.value = res.data || []
+  } catch (error) {
+    console.error('获取任务名称下拉失败', error)
+    ElMessage.error('获取任务列表失败')
+  }
+}
+
+/** 🔍 查询列表 */
+const handleQuery = async () => {
+  loading.value = true
+  try {
+    const payload = {
+      taskName: queryParams.taskName || undefined,
+      taskResult: queryParams.taskResult || undefined,
+      page: pagination.page,
+      pageSize: pagination.pageSize
+    }
+    const res = await request.post('/taskLog/page.do', payload)
+    if (res.data) {
+      tableData.value = res.data.list || []
+      pagination.total = res.data.total || 0
+    }
+  } catch (error) {
+    ElMessage.error('查询失败：' + (error.message || '未知错误'))
+  } finally {
+    loading.value = false
+  }
+}
+
+/** 🔄 重置查询 */
+const handleReset = () => {
+  queryFormRef.value?.resetFields()
+  pagination.page = 1
+  handleQuery()
+}
+
+/** 🗑️ 清空日志（带确认弹窗 + 传查询条件） */
 const handleClearLogs = async () => {
   try {
     await ElMessageBox.confirm(
@@ -138,59 +210,8 @@ const handleClearLogs = async () => {
   }
 }
 
-// 📊 表格状态
-const tableData = ref([])
-const loading = ref(false)
-
-// 🔍 查询参数
-const queryParams = reactive({
-  taskName: '',
-  taskResult: '',
-  page: 1,
-  pageSize: 10
-})
-
-// 📄 分页参数
-const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
-const queryFormRef = ref()
-
-// 🏷️ 辅助方法：执行结果标签颜色映射
-const getTaskResultTag = (val) => {
-  // 通常 0-失败, 1-成功, 2-执行中/跳过，具体以实际字典为准
-  const map = { '0': 'danger', '1': 'success', '2': 'warning' }
-  return map[val] || 'info'
-}
-
-// 🔍 查询列表
-const handleQuery = async () => {
-  loading.value = true
-  try {
-    const payload = {
-      taskName: queryParams.taskName || undefined,
-      taskResult: queryParams.taskResult || undefined,
-      page: pagination.page,
-      pageSize: pagination.pageSize
-    }
-    const res = await request.post('/taskLog/page.do', payload)
-    if (res.data) {
-      tableData.value = res.data.list || []
-      pagination.total = res.data.total || 0
-    }
-  } catch (error) {
-    ElMessage.error('查询失败：' + (error.message || '未知错误'))
-  } finally {
-    loading.value = false
-  }
-}
-
-// 🔄 重置查询
-const handleReset = () => {
-  queryFormRef.value?.resetFields()
-  pagination.page = 1
-  handleQuery()
-}
-
 onMounted(() => {
+  fetchTaskNameOptions()
   handleQuery()
 })
 </script>
