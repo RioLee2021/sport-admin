@@ -85,6 +85,51 @@
       </el-form>
     </el-card>
 
+    <!-- 📊 可折叠统计卡片区域 -->
+    <el-collapse v-model="activeCollapse" class="stats-collapse" style="margin-bottom: 20px">
+      <el-collapse-item name="stats" title="📈 统计数据概览">
+        <el-row :gutter="20" class="stats-row" v-if="stsDataList.length > 0">
+          <el-col
+            v-for="item in stsDataList"
+            :key="item.changeType"
+            :span="6"
+            :xs="24" :sm="12" :md="8" :lg="6"
+          >
+            <el-card
+              shadow="hover"
+              class="metric-card"
+              :style="{ borderLeft: `4px solid ${getStatColor(item.changeType)}` }"
+            >
+              <div class="metric-header">
+                <el-icon :style="{ color: getStatColor(item.changeType) }" class="metric-icon">
+                  <Wallet />
+                </el-icon>
+                <span class="metric-title">{{ getDictLabel('CoinChangeType', item.changeType) }}</span>
+              </div>
+
+              <div class="metric-content">
+                <div class="metric-value">
+                  {{ formatNumber(item.coinsCnt) }}
+                  <span class="metric-unit">金币</span>
+                </div>
+                <div class="metric-label">金币总额</div>
+              </div>
+
+              <el-divider class="metric-divider" />
+
+              <div class="metric-compare">
+                <div class="compare-item">
+                  <span class="compare-label">会员数</span>
+                  <span class="compare-value">{{ item.memberCnt ?? 0 }}</span>
+                </div>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+        <div v-else class="empty-stats">暂无统计数据</div>
+      </el-collapse-item>
+    </el-collapse>
+
     <!-- 📋 表格区域 -->
     <el-card class="table-card" shadow="hover">
       <el-table
@@ -151,14 +196,18 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search, Refresh, Wallet } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getDictOptions, getDictLabel } from '@/utils/dict'
-import { toTimestamp} from "../../utils/format";
+import { toTimestamp } from "../../utils/format"
 
 // 📊 表格状态
 const tableData = ref([])
 const loading = ref(false)
+
+// 📈 统计数据
+const stsDataList = ref([])
+const activeCollapse = ref(['stats']) // 默认展开统计区域
 
 // 🔍 查询参数
 const queryParams = reactive({
@@ -178,7 +227,6 @@ const queryFormRef = ref()
 
 // 🏷️ 辅助方法：变更类型标签颜色
 const getChangeTypeTag = (type) => {
-  // 根据实际业务调整：0-充值(成功), 1-消费(警告), 2-退款(信息), 3-系统调整(危险)
   const map = { '0': 'success', '1': 'warning', '2': 'info', '3': 'danger' }
   return map[type] || 'info'
 }
@@ -197,6 +245,42 @@ const formatChangeCoins = (coins) => {
   if (num > 0) return `+${num}`
   if (num < 0) return `${num}`
   return '0'
+}
+
+// 🔢 数字格式化
+const formatNumber = (num) => {
+  if (num === null || num === undefined) return '-'
+  if (num >= 10000) return (num / 10000).toFixed(1) + '万'
+  if (num >= 1000) return (num / 1000).toFixed(1) + '千'
+  return num.toLocaleString()
+}
+
+// 🎨 统计卡片颜色映射
+const getStatColor = (changeType) => {
+  const colors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#626AEF', '#00C4B3']
+  return colors[Number(changeType) % colors.length] || '#409EFF'
+}
+
+// 📥 获取统计数据
+const fetchStsData = async () => {
+  try {
+    // 传递相同的查询条件以获取对应筛选的统计
+    const payload = {
+      username: queryParams.username || undefined,
+      phoneNumber: queryParams.phoneNumber || undefined,
+      changeType: queryParams.changeType || undefined,
+      relatedNo: queryParams.relatedNo || undefined,
+      createBy: queryParams.createBy || undefined,
+      startTime: toTimestamp(queryParams.timeRange?.[0]) || undefined,
+      endTime: toTimestamp(queryParams.timeRange?.[1]) || undefined
+    }
+    const res = await request.post('/coinFlw/stsData.do', payload)
+    if (res.data && Array.isArray(res.data)) {
+      stsDataList.value = res.data
+    }
+  } catch (error) {
+    console.error('获取统计数据失败', error)
+  }
 }
 
 // 🔍 查询列表
@@ -219,6 +303,8 @@ const handleQuery = async () => {
       tableData.value = res.data.list || []
       pagination.total = res.data.total || 0
     }
+    // 查询时同步刷新统计数据
+    await fetchStsData()
   } catch (error) {
     ElMessage.error('查询失败：' + (error.message || '未知错误'))
   } finally {
@@ -240,11 +326,75 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .coin-flw-container { padding: 20px; }
-.search-card { margin-bottom: 20px; :deep(.el-card__body) { padding: 20px; } }
-.table-card { :deep(.el-card__body) { padding: 20px; } }
+
+.search-card {
+  margin-bottom: 20px;
+  :deep(.el-card__body) { padding: 20px; }
+}
+
+/* 📊 折叠统计区域样式 */
+.stats-collapse {
+  :deep(.el-collapse-item__header) {
+    font-size: 15px;
+    font-weight: 500;
+    color: #303133;
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 12px 16px;
+  }
+  :deep(.el-collapse-item__wrap) {
+    border: none;
+  }
+}
+
+.stats-row {
+  padding: 16px 20px;
+}
+
+.empty-stats {
+  padding: 20px;
+  text-align: center;
+  color: #909399;
+}
+
+/* 📈 统计卡片样式 (复用欢迎页) */
+.metric-card {
+  border-radius: 12px;
+  transition: transform 0.3s, box-shadow 0.3s;
+  &:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12) !important; }
+  :deep(.el-card__body) { padding: 16px; }
+
+  .metric-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .metric-icon { font-size: 20px; }
+  .metric-title { font-size: 14px; font-weight: 500; color: #606266; }
+
+  .metric-content { text-align: center; }
+  .metric-value {
+    font-size: 26px; font-weight: bold; color: #303133; line-height: 1.2;
+    .metric-unit { font-size: 12px; font-weight: normal; color: #909399; margin-left: 4px; }
+  }
+  .metric-label { font-size: 13px; color: #409EFF; margin-top: 4px; }
+
+  .metric-divider { margin: 12px 0; }
+
+  .metric-compare { display: flex; justify-content: space-between; }
+  .compare-item { display: flex; flex-direction: column; align-items: center; }
+  .compare-label { font-size: 12px; color: #909399; margin-bottom: 2px; }
+  .compare-value { font-size: 14px; font-weight: 500; color: #606266; }
+}
+
+.table-card {
+  :deep(.el-card__body) { padding: 20px; }
+}
+
 .search-buttons { display: flex; gap: 10px; justify-content: flex-end; width: 100%; }
 
 /* 🔑 变更积分颜色样式 */
 :deep(.text-success) { color: #67c23a; font-weight: 500; }
 :deep(.text-danger) { color: #f56c6c; font-weight: 500; }
+
+/* 📱 响应式适配 */
+@media (max-width: 768px) {
+  .metric-card { margin-bottom: 16px; }
+}
 </style>
