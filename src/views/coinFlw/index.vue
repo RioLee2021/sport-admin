@@ -207,7 +207,7 @@ const loading = ref(false)
 
 // 📈 统计数据
 const stsDataList = ref([])
-const activeCollapse = ref(['stats']) // 默认展开统计区域
+const activeCollapse = ref([]) // 默认展开统计区域
 
 // 🔍 查询参数
 const queryParams = reactive({

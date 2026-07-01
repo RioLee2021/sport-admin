@@ -52,45 +52,49 @@
     </el-card>
 
     <!-- 📊 统计数据卡片 (复用欢迎页样式) -->
-    <el-row :gutter="20" class="stats-row" v-if="stsDataList.length > 0">
-      <el-col
-        v-for="item in stsDataList"
-        :key="item.activityName"
-        :span="8"
-        :xs="24" :sm="12" :md="8" :lg="8"
-      >
-        <el-card
-          shadow="hover"
-          class="metric-card"
-          :style="{ borderLeft: `4px solid ${getStatColor(item.activityName)}` }"
-        >
-          <div class="metric-header">
-            <el-icon :style="{ color: getStatColor(item.activityName) }" class="metric-icon">
-              <Trophy />
-            </el-icon>
-            <span class="metric-title">{{ item.activityName }}</span>
-          </div>
+    <!-- 📊 统计数据卡片 (复用欢迎页样式) -->
+    <el-collapse v-model="activeCollapse" class="stats-collapse" style="margin-bottom: 20px">
+      <el-collapse-item name="stats" title="📈 统计数据概览">
+        <el-row :gutter="20" class="stats-row" v-if="stsDataList.length > 0">
+          <el-col
+            v-for="item in stsDataList"
+            :key="item.activityName"
+            :span="8"
+            :xs="24" :sm="12" :md="8" :lg="8"
+          >
+            <el-card
+              shadow="hover"
+              class="metric-card"
+              :style="{ borderLeft: `4px solid ${getStatColor(item.activityName)}` }"
+            >
+              <div class="metric-header">
+                <el-icon :style="{ color: getStatColor(item.activityName) }" class="metric-icon">
+                  <Trophy/>
+                </el-icon>
+                <span class="metric-title">{{ item.activityName }}</span>
+              </div>
 
-          <div class="metric-content">
-            <div class="metric-value">
-              {{ item.memberCnt ?? 0 }}
-              <span class="metric-unit">人</span>
-            </div>
-            <div class="metric-label">参与会员</div>
-          </div>
+              <div class="metric-content">
+                <div class="metric-value">
+                  {{ item.memberCnt ?? 0 }}
+                  <span class="metric-unit">人</span>
+                </div>
+                <div class="metric-label">参与会员</div>
+              </div>
 
-          <el-divider class="metric-divider" />
+              <el-divider class="metric-divider"/>
 
-          <div class="metric-compare">
-            <div class="compare-item">
-              <span class="compare-label">总奖励</span>
-              <span class="compare-value coin-text">{{ item.coinsCnt ?? 0 }}</span>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
+              <div class="metric-compare">
+                <div class="compare-item">
+                  <span class="compare-label">总奖励</span>
+                  <span class="compare-value coin-text">{{ item.coinsCnt ?? 0 }}</span>
+                </div>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </el-collapse-item>
+    </el-collapse>
     <!-- 📋 表格区域 -->
     <el-card class="table-card" shadow="hover">
       <template #header>
@@ -106,10 +110,10 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column type="index" label="序号" width="60" align="center" />
+        <el-table-column type="index" label="序号" width="60" align="center"/>
 
-        <el-table-column label="活动编码" prop="activityCode" width="120" align="center" />
-        <el-table-column label="活动名称" prop="activityName" min-width="150" show-overflow-tooltip />
+        <el-table-column label="活动编码" prop="activityCode" width="120" align="center"/>
+        <el-table-column label="活动名称" prop="activityName" min-width="150" show-overflow-tooltip/>
 
         <el-table-column label="会员信息" width="180">
           <template #default="{ row }">
@@ -120,7 +124,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="订单号" prop="orderNo" width="160" show-overflow-tooltip />
+        <el-table-column label="订单号" prop="orderNo" width="160" show-overflow-tooltip/>
 
         <el-table-column label="周期类型" prop="periodic" width="100" align="center">
           <template #default="{ row }">
@@ -136,7 +140,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="创建人" prop="createBy" width="100" align="center" />
+        <el-table-column label="创建人" prop="createBy" width="100" align="center"/>
         <el-table-column label="创建时间" prop="createAt" width="180" align="center">
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
         </el-table-column>
@@ -158,9 +162,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Search, Refresh, Trophy } from '@element-plus/icons-vue'
+import {ref, reactive, onMounted} from 'vue'
+import {ElMessage} from 'element-plus'
+import {Search, Refresh, Trophy} from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
 // 📊 表格状态
@@ -179,6 +183,8 @@ const queryParams = reactive({
   pageSize: 20
 })
 
+const activeCollapse = ref([])
+
 // 📄 分页参数
 const pagination = reactive({
   page: 1,
@@ -190,12 +196,12 @@ const queryFormRef = ref()
 
 /** 🎨 周期类型映射 (参考 Periodic 枚举) */
 const getPeriodicLabel = (val) => {
-  const map = { '0': '无周期', '1': '每日', '2': '每周', '3': '每月', '4': '自定义' }
+  const map = {'0': '无周期', '1': '每日', '2': '每周', '3': '每月', '4': '自定义'}
   return map[String(val)] || '-'
 }
 
 const getPeriodicTagType = (val) => {
-  const map = { '0': 'info', '1': 'success', '2': 'warning', '3': 'primary', '4': 'danger' }
+  const map = {'0': 'info', '1': 'success', '2': 'warning', '3': 'primary', '4': 'danger'}
   return map[String(val)] || 'info'
 }
 
@@ -269,54 +275,155 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.activity-log-container { padding: 20px; }
+.activity-log-container {
+  padding: 20px;
+}
 
-.search-card { margin-bottom: 20px; :deep(.el-card__body) { padding: 20px; } }
+.search-card {
+  margin-bottom: 20px;
+
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+}
 
 /* 📈 统计卡片样式 (复用欢迎页) */
-.stats-row { margin-bottom: 20px; }
+.stats-row {
+  margin-bottom: 20px;
+}
 
 .metric-card {
   border-radius: 12px;
   transition: transform 0.3s, box-shadow 0.3s;
-  &:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12) !important; }
-  :deep(.el-card__body) { padding: 16px; }
 
-  .metric-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-  .metric-icon { font-size: 20px; }
-  .metric-title { font-size: 14px; font-weight: 500; color: #606266; }
-
-  .metric-content { text-align: center; }
-  .metric-value {
-    font-size: 26px; font-weight: bold; color: #303133; line-height: 1.2;
-    .metric-unit { font-size: 12px; font-weight: normal; color: #909399; margin-left: 4px; }
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12) !important;
   }
-  .metric-label { font-size: 13px; color: #409EFF; margin-top: 4px; }
 
-  .metric-divider { margin: 12px 0; }
+  :deep(.el-card__body) {
+    padding: 16px;
+  }
 
-  .metric-compare { display: flex; justify-content: space-between; }
-  .compare-item { display: flex; flex-direction: column; align-items: center; }
-  .compare-label { font-size: 12px; color: #909399; margin-bottom: 2px; }
-  .compare-value { font-size: 14px; font-weight: 500; color: #606266; }
+  .metric-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .metric-icon {
+    font-size: 20px;
+  }
+
+  .metric-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #606266;
+  }
+
+  .metric-content {
+    text-align: center;
+  }
+
+  .metric-value {
+    font-size: 26px;
+    font-weight: bold;
+    color: #303133;
+    line-height: 1.2;
+
+    .metric-unit {
+      font-size: 12px;
+      font-weight: normal;
+      color: #909399;
+      margin-left: 4px;
+    }
+  }
+
+  .metric-label {
+    font-size: 13px;
+    color: #409EFF;
+    margin-top: 4px;
+  }
+
+  .metric-divider {
+    margin: 12px 0;
+  }
+
+  .metric-compare {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .compare-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .compare-label {
+    font-size: 12px;
+    color: #909399;
+    margin-bottom: 2px;
+  }
+
+  .compare-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: #606266;
+  }
 }
 
 .table-card {
-  :deep(.el-card__body) { padding: 20px; }
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+
   .card-header {
-    display: flex; justify-content: space-between; align-items: center;
-    .title { font-size: 16px; font-weight: bold; color: #303133; }
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #303133;
+    }
   }
 }
 
-.search-buttons { display: flex; gap: 10px; justify-content: flex-end; width: 100%; }
-.member-info { display: flex; flex-direction: column; gap: 2px; }
-.member-name { font-weight: 500; color: #303133; }
-.member-phone { font-size: 12px; color: #909399; }
-.coin-text { font-weight: 600; color: #E6A23C; }
+.search-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.member-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.member-name {
+  font-weight: 500;
+  color: #303133;
+}
+
+.member-phone {
+  font-size: 12px;
+  color: #909399;
+}
+
+.coin-text {
+  font-weight: 600;
+  color: #E6A23C;
+}
 
 /* 📱 响应式适配 */
 @media (max-width: 768px) {
-  .metric-card { margin-bottom: 16px; }
+  .metric-card {
+    margin-bottom: 16px;
+  }
 }
 </style>

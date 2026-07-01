@@ -150,7 +150,7 @@ const loading = ref(false)
 
 // 📈 统计数据
 const stsDataList = ref([])
-const activeCollapse = ref(['stats']) // 默认展开统计区域
+const activeCollapse = ref([]) // 默认展开统计区域
 
 // 🔍 查询参数 (严格对照 分页请求参数_27)
 const queryParams = reactive({
