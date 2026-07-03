@@ -4,22 +4,26 @@
     <div class="page-header">
       <h2 class="page-title">📊 数据看板</h2>
       <div>
-      <el-button
-        type="primary"
-        :icon="Refresh"
-        :loading="refreshLoading"
-        @click="fetchData"
-      >
-        刷新数据
-      </el-button>
-      <el-button
-        type="danger"
-        :icon="Refresh"
-        :loading="refreshLoading"
-        @click="handleRefresh"
-      >
-        重载数据
-      </el-button>
+        <el-button
+          type="primary"
+          :icon="Refresh"
+          :loading="refreshLoading"
+          @click="fetchData"
+        >
+          刷新数据
+        </el-button>
+        <el-button
+          type="danger"
+          :icon="Refresh"
+          :loading="refreshLoading"
+          @click="handleRefresh"
+        >
+          重载数据
+        </el-button>
+        <!-- ✅ 倒计时显示 -->
+        <el-tag size="small" type="info" style="margin-left: 12px">
+          {{ countdown }}s 后自动刷新
+        </el-tag>
       </div>
     </div>
 
@@ -104,6 +108,9 @@
             <div class="chart-header">
               <span class="chart-title">📋 会员分布数据</span>
               <el-radio-group v-model="activeDistTab" size="small">
+                <!-- ✅ 新增：在线会员分布 Tab -->
+                <el-radio-button :value="'online'">在线会员</el-radio-button>
+                <el-radio-button :value="'onlineTop'">在线会员分布</el-radio-button>
                 <el-radio-button :value="'level'">等级分布</el-radio-button>
                 <el-radio-button :value="'active'">活动量分布</el-radio-button>
                 <el-radio-button :value="'zombie'">僵尸会员</el-radio-button>
@@ -196,6 +203,10 @@ import * as echarts from 'echarts'
 const refreshLoading = ref(false)
 const lastUpdateTime = ref('')
 
+// ⏱️ 自动刷新倒计时
+const countdown = ref(30)
+let refreshTimer = null
+
 // 📊 核心指标卡片配置 (扩展为 8 个)
 const metricCards = [
   // 1. 基础增长
@@ -216,7 +227,7 @@ const metricCards = [
 ]
 
 // 📈 图表 Tab 状态
-const activeDistTab = ref('level')
+const activeDistTab = ref('online') // ✅ 默认显示在线会员分布
 const activeRankTab = ref('coins')
 
 // 📊 图表实例
@@ -232,10 +243,12 @@ const welcomeData = reactive({
   watch: null,
   guess: null,
   giftRedeem: null,
+  memberOnlineInfo: { loginOnline: 0, noLoginOnline: 0 }, // ✅ 在线会员数据
   currMbrLevelDistribution: [],
   currWeekRegisterDistribution: [],
   currZombieMbrDistribution: [],
   currActiveMbrDistribution: [],
+  currOnlineTopDistribution: [], // ✅ 在线会员排行榜数据
   currCoinsTopList: [],
   currInviteTopList: [],
   allGiftTypeDistribution: []
@@ -264,8 +277,8 @@ const resolveValue = (item, period, subField = 'mbrCnt') => {
 /** 🔢 数字格式化 */
 const formatNumber = (num) => {
   if (num === null || num === undefined || isNaN(num)) return '-'
-  if (num >= 10000) return (num / 10000).toFixed(1) + '万'
-  if (num >= 1000) return (num / 1000).toFixed(1) + '千'
+  // if (num >= 10000) return (num / 10000).toFixed(1) + '万'
+  // if (num >= 1000) return (num / 1000).toFixed(1) + '千'
   return num.toLocaleString()
 }
 
@@ -332,8 +345,15 @@ const renderDistChart = () => {
 
   const getDistData = () => {
     switch (activeDistTab.value) {
+      case 'online': // ✅ 在线会员分布（饼图）
+        return [
+          { name: '登录在线', value: welcomeData.memberOnlineInfo?.loginOnline || 0 },
+          { name: '未登录在线', value: welcomeData.memberOnlineInfo?.noLoginOnline || 0 }
+        ]
+      case 'onlineTop': // ✅ 在线会员排行榜（柱状图）
+        return welcomeData.currOnlineTopDistribution || []
       case 'level': return welcomeData.currMbrLevelDistribution
-      case 'active': return welcomeData.currActiveMbrDistribution  // ✅ 活动量用柱状图
+      case 'active': return welcomeData.currActiveMbrDistribution
       case 'zombie': return welcomeData.currZombieMbrDistribution
       case 'gift': return welcomeData.allGiftTypeDistribution
       default: return []
@@ -343,12 +363,29 @@ const renderDistChart = () => {
   let data = getDistData()
   const colors = ['#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE', '#3BA272', '#FC8452']
 
-  // ✅ 获取注册总数（用于僵尸会员分布显示）
-  const registerTotal = welcomeData.register?.total?.mbrCnt || 0
-
-  // ✅ 活动量分布使用柱状图，其他使用饼图
-  if (activeDistTab.value === 'active') {
-    // 📊 柱状图配置（与周注册图表一致）
+  // ✅ 在线会员分布（饼图）
+  if (activeDistTab.value === 'online') {
+    const option = {
+      tooltip: { trigger: 'item', formatter: '{b}: {c} 人 ({d}%)' },
+      legend: { bottom: 0, type: 'scroll' },
+      series: [{
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: true,
+        itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+        label: { show: true, position: 'center', formatter: '{a|在线会员}\n{b|{c}人}', rich: { a: { fontSize: 12, color: '#606266' }, b: { fontSize: 16, fontWeight: 'bold', color: '#303133' } } },
+        emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold', formatter: '{b}\n{c} 人' } },
+        data: data.map((item, idx) => ({
+          name: item.name,
+          value: item.value,
+          itemStyle: { color: colors[idx % colors.length] }
+        }))
+      }]
+    }
+    distChart.setOption(option, true)
+  }
+  // ✅ 柱状图类型：在线会员排行 / 活动量分布
+  else if (activeDistTab.value === 'onlineTop' || activeDistTab.value === 'active') {
     const option = {
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       grid: { top: 10, bottom: 20, left: 40, right: 10, containLabel: true },
@@ -379,11 +416,12 @@ const renderDistChart = () => {
       }]
     }
     distChart.setOption(option, true)
-  } else {
-    // 🥧 饼图配置（原有逻辑）
-
+  }
+  // ✅ 其他分布使用饼图（原有逻辑）
+  else {
     // 特殊处理：僵尸会员分布使用注册总数作为分母计算占比
-    if (activeDistTab.value === 'zombie' && registerTotal > 0) {
+    if (activeDistTab.value === 'zombie' && welcomeData.register?.total?.mbrCnt > 0) {
+      const registerTotal = welcomeData.register.total.mbrCnt
       data = data.map(item => ({
         ...item,
         value: (Number(item.value) / registerTotal) * 100,
@@ -393,7 +431,7 @@ const renderDistChart = () => {
 
     const option = {
       title: activeDistTab.value === 'zombie' ? {
-        text: `注册总数：${formatNumber(registerTotal)} 人`,
+        text: `注册总数：${formatNumber(welcomeData.register?.total?.mbrCnt || 0)} 人`,
         left: 'center',
         top: '5%',
         textStyle: { fontSize: 14, color: '#606266' },
@@ -472,7 +510,9 @@ watch(() => [
   welcomeData.currMbrLevelDistribution,
   welcomeData.currActiveMbrDistribution,
   welcomeData.currZombieMbrDistribution,
-  welcomeData.allGiftTypeDistribution
+  welcomeData.allGiftTypeDistribution,
+  welcomeData.memberOnlineInfo,
+  welcomeData.currOnlineTopDistribution
 ], () => {
   if (activeDistTab.value) {
     nextTick(() => renderDistChart())
@@ -513,12 +553,31 @@ const handleResize = () => {
   weekChart?.resize()
 }
 
+/** ⏱️ 启动倒计时定时器 */
+const startCountdown = () => {
+  // 清除旧定时器
+  if (refreshTimer) clearInterval(refreshTimer)
+
+  countdown.value = 30
+
+  refreshTimer = setInterval(() => {
+    countdown.value--
+    if (countdown.value <= 0) {
+      countdown.value = 30
+      fetchData() // 自动刷新数据
+    }
+  }, 1000)
+}
+
 onMounted(() => {
   fetchData()
+  startCountdown() // ✅ 启动 15 秒自动刷新
   window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
+  // ✅ 清理定时器，防止内存泄漏
+  if (refreshTimer) clearInterval(refreshTimer)
   window.removeEventListener('resize', handleResize)
   distChart?.dispose()
   weekChart?.dispose()
