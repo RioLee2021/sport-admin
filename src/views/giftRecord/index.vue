@@ -57,13 +57,23 @@
       </template>
 
       <el-table v-loading="loading" :data="tableData" border stripe style="width: 100%">
-        <el-table-column prop="orderNo" label="订单号" width="150" show-overflow-tooltip />
+        <el-table-column prop="orderNo" label="订单号" width="180" show-overflow-tooltip />
         <el-table-column prop="username" label="会员账号" width="120" show-overflow-tooltip />
-        <el-table-column prop="giftInfo" label="礼物说明" min-width="150" show-overflow-tooltip />
+<!--        <el-table-column prop="giftInfo" label="礼物说明" min-width="150" show-overflow-tooltip />-->
         <el-table-column prop="giftValue" label="礼物价值" width="100" align="right" />
-        <el-table-column prop="stockNo" label="库存编号" width="120" />
         <el-table-column prop="relatedAccount" label="关联账号" width="120" show-overflow-tooltip />
-
+        <el-table-column label="凭证图片" prop="documentUrl" width="180" align="center">
+          <template #default="{ row }">
+            <el-image
+              v-if="row.documentUrl"
+              :src="row.documentUrl"
+              fit="cover"
+              style="width: 100px; height: 60px; border-radius: 4px; cursor: pointer"
+              :preview-src-list="[row.documentUrl]"
+            />
+            <span v-else class="no-data">-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="giftType" label="礼物类型" width="100" align="center">
           <template #default="{ row }">
             <el-tag size="small">{{ getDictLabel('GiftType', row.giftType) }}</el-tag>
@@ -224,6 +234,7 @@ const handleUpload = async (options) => {
   try {
     const formData = new FormData()
     formData.append('file', options.file)
+    formData.append('type', 7)
     const res = await request.post('/pub/uploadPic.do', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
     form.documentUrl = res.data?.url || res.data
     ElMessage.success('图片上传成功')
