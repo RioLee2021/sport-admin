@@ -58,6 +58,7 @@
 
       <el-table v-loading="loading" :data="tableData" border stripe style="width: 100%">
         <el-table-column prop="orderNo" label="订单号" width="150" show-overflow-tooltip />
+        <el-table-column prop="username" label="会员账号" width="120" show-overflow-tooltip />
         <el-table-column prop="giftInfo" label="礼物说明" min-width="150" show-overflow-tooltip />
         <el-table-column prop="giftValue" label="礼物价值" width="100" align="right" />
         <el-table-column prop="stockNo" label="库存编号" width="120" />
@@ -76,6 +77,7 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="remark" label="备注" width="120" show-overflow-tooltip />
 
         <el-table-column prop="createAt" label="创建时间" width="180" align="center">
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
