@@ -152,7 +152,7 @@
         <el-table-column label="操作" width="240" align="center" fixed="right">
           <template #default="{ row }">
             <el-button
-              v-if="row.approveStatus === '0'"
+              v-if="row.approveStatus == '0'"
               type="primary" link size="small"
               @click="openReviewDialog(row)"
             >审核</el-button>
@@ -209,6 +209,28 @@
             />
           </el-select>
         </el-form-item>
+
+        <!-- ✅ 新增：备注下拉（支持输入+localStorage缓存） -->
+        <el-form-item label="备注" prop="remark">
+          <el-select
+            v-model="reviewForm.remark"
+            placeholder="请选择或输入备注"
+            filterable
+            allow-create
+            default-first-option
+            :reserve-keyword="false"
+            style="width: 100%"
+            @change="handleRemarkChange"
+          >
+            <el-option
+              v-for="item in remarkOptions"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="审核结果" prop="accept">
           <el-radio-group v-model="reviewForm.accept">
             <el-radio :label="true">✅ 通过</el-radio>
@@ -286,6 +308,43 @@ import { Search, Refresh, Picture, Link, CopyDocument } from '@element-plus/icon
 import request from '@/utils/request'
 import { getDictOptions, getDictLabel } from '@/utils/dict'
 
+// ✅ 备注下拉选项（localStorage 缓存）
+const remarkOptions = ref([])
+const REMARK_STORAGE_KEY = 'member_share_remark_options'
+
+// 📦 从 localStorage 加载备注选项
+const loadRemarkOptions = () => {
+  try {
+    const stored = localStorage.getItem(REMARK_STORAGE_KEY)
+    if (stored) {
+      remarkOptions.value = JSON.parse(stored)
+    }
+  } catch (error) {
+    console.error('加载备注选项失败:', error)
+  }
+}
+
+// 💾 保存备注选项到 localStorage（去重）
+const saveRemarkOptions = () => {
+  try {
+    // 去重 + 过滤空值
+    const uniqueOptions = [...new Set(remarkOptions.value.filter(item => item?.trim()))]
+    localStorage.setItem(REMARK_STORAGE_KEY, JSON.stringify(uniqueOptions))
+  } catch (error) {
+    console.error('保存备注选项失败:', error)
+  }
+}
+
+// 🔄 备注变更处理：新增到 localStorage
+const handleRemarkChange = (value) => {
+  if (!value) return
+  // 如果输入的值不在现有列表中，则添加
+  if (!remarkOptions.value.includes(value)) {
+    remarkOptions.value.unshift(value) // 新值放前面
+    saveRemarkOptions()
+  }
+}
+
 // 📊 表格状态
 const tableData = ref([])
 const loading = ref(false)
@@ -306,7 +365,7 @@ const queryFormRef = ref()
 const reviewVisible = ref(false)
 const reviewLoading = ref(false)
 const reviewFormRef = ref()
-const reviewForm = reactive({ id: null, siteName: '', accept: null })
+const reviewForm = reactive({ id: null, siteName: '', accept: null,  remark: '' })
 const reviewRules = {
   siteName: [{ required: true, message: '请输入或选择站点名称', trigger: 'blur' }],
   accept: [{ required: true, message: '请选择审核结果', trigger: 'change' }]
@@ -411,6 +470,7 @@ const openReviewDialog = (row) => {
   reviewForm.siteName = row.siteName
   reviewForm.accept = null
   reviewVisible.value = true
+  reviewForm.remark = ''
   setTimeout(() => reviewFormRef.value?.clearValidate(), 100)
 }
 
@@ -424,7 +484,8 @@ const submitReview = async () => {
       await request.post('/memberShare/review.do', {
         id: reviewForm.id,
         siteName: reviewForm.siteName,
-        accept: reviewForm.accept
+        accept: reviewForm.accept,
+        remark: reviewForm.remark
       })
       ElMessage.success('审核提交成功')
       reviewVisible.value = false
@@ -533,6 +594,7 @@ const handlePosterClose = () => {
 }
 
 onMounted(() => {
+  loadRemarkOptions()
   fetchSiteOptions()
   handleQuery()
 })
