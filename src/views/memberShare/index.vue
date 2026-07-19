@@ -352,7 +352,7 @@ const siteOptions = ref([])
 
 // 🔍 查询参数
 const queryParams = reactive({
-  approveStatus: '',
+  approveStatus: '0',
   validateResult: '',
   siteName: '',
   page: 1,
