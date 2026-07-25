@@ -183,7 +183,7 @@
             :http-request="handleFileUpload"
             :show-file-list="true"
             :limit="1"
-            accept=".apk,.ipa,.exe,.dmg"
+            accept=".zip"
           >
             <template #trigger>
               <el-button type="primary">选择文件</el-button>
