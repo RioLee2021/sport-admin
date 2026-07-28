@@ -62,6 +62,15 @@
       <template #header>
         <div class="card-header">
           <span class="title">硬件设备列表</span>
+          <!-- ✅ 批量删除按钮 -->
+          <el-button
+            v-if="multipleSelection.length > 0"
+            type="danger"
+            :icon="Delete"
+            @click="handleBatchDelete"
+          >
+            批量删除 ({{ multipleSelection.length }})
+          </el-button>
         </div>
       </template>
 
@@ -71,12 +80,14 @@
         border
         stripe
         style="width: 100%"
+        @selection-change="handleSelectionChange"
       >
+        <!-- ✅ 多选列 -->
+        <el-table-column type="selection" width="50" align="center" />
         <el-table-column type="index" label="序号" width="60" align="center" />
         <el-table-column prop="username" label="会员账号" width="120" show-overflow-tooltip />
         <el-table-column prop="phoneNumber" label="手机号" width="130" align="center" />
 
-        <!-- ✅ 补充所有缺失的字段 -->
         <el-table-column prop="hwdType" label="硬件类型" width="100" align="center">
           <template #default="{ row }">
             <el-tag size="small">{{ getDictLabel('HwdType', row.hwdType) }}</el-tag>
@@ -135,6 +146,13 @@
             <span v-else class="no-data">-</span>
           </template>
         </el-table-column>
+
+        <!-- ✅ 操作列：单条删除 -->
+        <el-table-column label="操作" width="100" align="center" fixed="right">
+          <template #default="{ row }">
+            <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          </template>
+        </el-table-column>
       </el-table>
 
       <!-- 📄 分页 -->
@@ -183,8 +201,8 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Search, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, Refresh, WarningFilled, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { getDictOptions, getDictLabel } from '@/utils/dict'
 // ✅ 导入 vue-json-pretty
@@ -194,6 +212,7 @@ import 'vue-json-pretty/lib/styles.css'
 // 📊 表格状态
 const tableData = ref([])
 const loading = ref(false)
+const multipleSelection = ref([]) // ✅ 存储选中的行
 
 // 🔍 查询参数 (严格对照 分页请求参数_12)
 const queryParams = reactive({
@@ -204,7 +223,7 @@ const queryParams = reactive({
   pageSize: 20
 })
 
-//  分页参数
+// 📄 分页参数
 const pagination = reactive({
   page: 1,
   pageSize: 20,
@@ -218,13 +237,68 @@ const jsonDialogVisible = ref(false)
 const parsedJson = ref(null)
 const jsonParseError = ref('')
 
-//  打开 JSON 对话框
+// ✅ 多选变更处理
+const handleSelectionChange = (selection) => {
+  multipleSelection.value = selection
+}
+
+// 🗑️ 单条删除
+const handleDelete = (row) => {
+  ElMessageBox.confirm(
+    `确定要删除该设备吗？此操作不可恢复！`,
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      await request.post('/hwdDevice/delete.do', { id: row.id })
+      ElMessage.success('删除成功')
+      handleQuery()
+    } catch (error) {
+      ElMessage.error('删除失败：' + (error.message || '未知错误'))
+    }
+  }).catch(() => {})
+}
+
+// 🗑️ 批量删除
+const handleBatchDelete = () => {
+  if (multipleSelection.value.length === 0) {
+    return ElMessage.warning('请至少选择一条记录')
+  }
+
+  const ids = multipleSelection.value.map(item => item.id)
+  const names = multipleSelection.value.map(item => item.username || item.id).join(', ')
+
+  ElMessageBox.confirm(
+    `确定要删除选中的 ${ids.length} 条记录吗？\n涉及账号：${names}\n此操作不可恢复！`,
+    '批量删除警告',
+    {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+      distinguishCancelAndClose: true
+    }
+  ).then(async () => {
+    try {
+      await request.post('/hwdDevice/batchDelete.do', { ids })
+      ElMessage.success(`成功删除 ${ids.length} 条记录`)
+      multipleSelection.value = [] // 清空选中
+      handleQuery()
+    } catch (error) {
+      ElMessage.error('批量删除失败：' + (error.message || '未知错误'))
+    }
+  }).catch(() => {})
+}
+
+// 🔗 打开 JSON 对话框
 const openJsonDialog = (jsonStr) => {
   jsonParseError.value = ''
   try {
     parsedJson.value = JSON.parse(jsonStr)
     jsonDialogVisible.value = true
-    console.log('parsedJson的值为：', parsedJson.value)
   } catch (e) {
     jsonParseError.value = 'JSON 格式解析失败，请检查数据完整性'
     jsonDialogVisible.value = true
@@ -296,39 +370,17 @@ onMounted(() => {
   font-size: 13px;
   line-height: 1.6;
 }
-
-:deep(.jv-key) {
-  color: #9cdcfe;
-}
-
-:deep(.jv-string) {
-  color: #ce9178;
-}
-
-:deep(.jv-number) {
-  color: #b5cea8;
-}
-
-:deep(.jv-boolean) {
-  color: #569cd6;
-}
-
-:deep(.jv-null) {
-  color: #569cd6;
-}
-
-:deep(.jv-item) {
-  margin-left: 20px;
-}
-
+:deep(.jv-key) { color: #9cdcfe; }
+:deep(.jv-string) { color: #ce9178; }
+:deep(.jv-number) { color: #b5cea8; }
+:deep(.jv-boolean) { color: #569cd6; }
+:deep(.jv-null) { color: #569cd6; }
+:deep(.jv-item) { margin-left: 20px; }
 :deep(.jv-toggle) {
   cursor: pointer;
   color: #808080;
-  &:hover {
-    color: #409eff;
-  }
+  &:hover { color: #409eff; }
 }
-
 :deep(.jv-copy-btn) {
   background: #333;
   color: #fff;
@@ -336,8 +388,6 @@ onMounted(() => {
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
-  &:hover {
-    background: #444;
-  }
+  &:hover { background: #444; }
 }
 </style>

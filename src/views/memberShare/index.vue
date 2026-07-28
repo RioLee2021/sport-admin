@@ -467,7 +467,7 @@ const handleReset = () => {
 // 📝 打开审核对话框
 const openReviewDialog = (row) => {
   reviewForm.id = row.id
-  reviewForm.siteName = row.siteName
+  reviewForm.siteName = 'x'
   reviewForm.accept = null
   reviewVisible.value = true
   reviewForm.remark = ''
@@ -523,7 +523,7 @@ const submitValidateLink = async () => {
       })
       if (res.data === 'success') {
         ElMessage.success('海报校验成功')
-        posterVisible.value = false
+        validateLinkVisible.value = false
         handleQuery()
       } else {
         ElMessage.error('海报校验失败：' + res.data)
