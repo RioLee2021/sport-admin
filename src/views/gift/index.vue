@@ -844,7 +844,7 @@ const openAutoStockDialog = (row) => {
     giftCode: row.giftCode,
     giftName: row.giftInfo || row.giftCode,
     giftValue: row.giftValue,  // 默认填入礼物价格
-    num: null,
+    num: 500,
     stockNoPrefix: `${row.giftCode.toUpperCase()}_${Date.now().toString().slice(-6)}` // 默认前缀
   })
   autoStockDialogVisible.value = true

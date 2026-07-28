@@ -464,10 +464,43 @@ const handleReset = () => {
   handleQuery()
 }
 
+function getSiteName(urlString) {
+  try {
+    // 确保 URL 带有协议，防止 new URL 解析失败
+    if (!/^https?:\/\//i.test(urlString)) {
+      urlString = 'https://' + urlString;
+    }
+
+    // 1. 使用原生 URL API 解析主机名
+    const url = new URL(urlString);
+    let hostname = url.hostname; // 例如: "x.com", "www.google.com", "v.lemon-8.app"
+
+    // 2. 去除开头的 www. 或常见的二级子域（如 v.lemon-8.app -> lemon-8.app）
+    hostname = hostname.replace(/^(www\.|v\.|m\.|mobile\.)/i, '');
+
+    // 3. 提取主域名名称 (不包含后缀如 .com, .app 等)
+    // 兼容常见的复合后缀如 .co.uk, .com.cn 等
+    const parts = hostname.split('.');
+    if (parts.length > 1) {
+      // 如果倒数第二个是常见二级后缀（如 co.uk），取倒数第三个
+      const commonSubTlds = ['co', 'com', 'org', 'net', 'edu', 'gov'];
+      if (parts.length >= 3 && commonSubTlds.includes(parts[parts.length - 2])) {
+        return parts[parts.length - 3];
+      }
+      return parts[parts.length - 2];
+    }
+
+    return parts[0];
+  } catch (e) {
+    console.error('URL 解析失败:', e);
+    return 'none';
+  }
+}
+
 // 📝 打开审核对话框
 const openReviewDialog = (row) => {
   reviewForm.id = row.id
-  reviewForm.siteName = 'x'
+  reviewForm.siteName = getSiteName(row.sourceLink)
   reviewForm.accept = null
   reviewVisible.value = true
   reviewForm.remark = ''
