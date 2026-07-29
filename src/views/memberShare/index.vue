@@ -25,16 +25,17 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="验证状态" prop="validateResult">
+            <el-form-item label="分享渠道" prop="shareSource">
               <el-select
-                v-model="queryParams.validateResult"
+                v-model="queryParams.shareSource"
                 placeholder="请选择"
                 clearable
                 style="width: 100%; min-width: 140px"
               >
-                <el-option label="未验证" value="0" />
-                <el-option label="验证成功" value="1" />
-                <el-option label="验证失败" value="2" />
+                <el-option label="facebook" value="0" />
+                <el-option label="twitter" value="1" />
+                <el-option label="linevoom" value="2" />
+                <el-option label="instagram" value="3" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -353,7 +354,7 @@ const siteOptions = ref([])
 // 🔍 查询参数
 const queryParams = reactive({
   approveStatus: '0',
-  validateResult: '',
+  shareSource: '',
   siteName: '',
   page: 1,
   pageSize: 20
@@ -440,7 +441,7 @@ const handleQuery = async () => {
   try {
     const payload = {
       approveStatus: queryParams.approveStatus || undefined,
-      validateResult: queryParams.validateResult || undefined,
+      shareSource: queryParams.shareSource || undefined,
       siteName: queryParams.siteName || undefined,
       page: pagination.page,
       pageSize: pagination.pageSize

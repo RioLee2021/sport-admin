@@ -443,7 +443,7 @@
           <el-input-number
             v-model="autoStockForm.num"
             :min="1"
-            :max="200"
+            :max="500"
             controls-position="right"
             style="width: 100%"
             placeholder="1-200"
@@ -559,7 +559,7 @@ const autoStockForm = reactive({
 const autoStockRules = {
   num: [
     { required: true, message: '请输入生成数量', trigger: 'blur' },
-    { type: 'number', min: 1, max: 200, message: '数量必须在 1-200 之间', trigger: 'blur' }
+    { type: 'number', min: 1, max: 500, message: '数量必须在 1-500 之间', trigger: 'blur' }
   ],
   stockNoPrefix: [
     { required: true, message: '请输入库存编号前缀', trigger: 'blur' },
