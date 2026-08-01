@@ -427,7 +427,7 @@ const loading = ref(false)
 
 // 🔍 查询参数
 const queryParams = reactive({
-  leagueCode: 'FIFA World Cup',
+  leagueCode: 'UEFA UCL',
   stat: undefined,
   hotFlag: undefined,
   timeRange: [],

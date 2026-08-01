@@ -121,6 +121,21 @@
       @close="handleDialogClose"
     >
       <el-form ref="formRef" :model="form" :rules="formRules" label-width="100px">
+        <el-form-item label="推送类型" prop="notificationsType">
+          <el-select
+            v-model="form.notificationsType"
+            placeholder="请选择"
+            clearable
+            style="width: 100%; min-width: 140px"
+          >
+            <el-option
+              v-for="item in getDictOptions('NotificationsType')"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="推送标题" prop="notificationTitle">
           <el-input v-model="form.notificationTitle" placeholder="请输入推送标题" clearable/>
         </el-form-item>
@@ -172,7 +187,8 @@ const formRef = ref()
 const form = reactive({
   notificationTitle: '',
   notificationContent: '',
-  clickAction: ''
+  clickAction: '',
+  notificationsType: 0
 })
 
 const dialogTitle = computed(() => dialogMode.value === 'add' ? '新增广播' : '发给僵尸号')
