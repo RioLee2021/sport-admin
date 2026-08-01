@@ -35,7 +35,7 @@
       <template #header>
         <div class="card-header">
           <span class="title">通讯录列表</span>
-          <el-button type="primary"  @click="handleFormatNumber">格式化号码（5000条）</el-button>
+          <el-button type="primary"  @click="handleFormatNumber">压缩并导出</el-button>
         </div>
       </template>
 
