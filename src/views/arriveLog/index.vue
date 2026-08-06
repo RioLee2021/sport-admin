@@ -150,7 +150,7 @@ const loading = ref(false)
 
 // 🔍 查询参数 (严格对照 分页请求参数_2)
 const queryParams = reactive({
-  notificationNo: route.query.notificationNo|| this.$route.query.notificationNo,
+  notificationNo: route.query.notificationNo || undefined,
   username: '',
   arriveFlag: undefined,
   clickFlag: undefined,

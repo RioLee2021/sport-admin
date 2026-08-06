@@ -83,10 +83,10 @@
         @selection-change="handleSelectionChange"
       >
         <!-- ✅ 多选列 -->
-        <el-table-column type="selection" width="50" align="center" />
-        <el-table-column type="index" label="序号" width="60" align="center" />
-        <el-table-column prop="username" label="会员账号" width="120" show-overflow-tooltip />
-        <el-table-column prop="phoneNumber" label="手机号" width="130" align="center" />
+        <el-table-column type="selection" width="50" align="center"/>
+        <el-table-column type="index" label="序号" width="60" align="center"/>
+        <el-table-column prop="username" label="会员账号" width="120" show-overflow-tooltip/>
+        <el-table-column prop="phoneNumber" label="手机号" width="130" align="center"/>
 
         <el-table-column prop="hwdType" label="硬件类型" width="100" align="center">
           <template #default="{ row }">
@@ -94,10 +94,10 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="realDeviceId" label="真实设备ID" width="180" show-overflow-tooltip />
-        <el-table-column prop="virtualDeviceId" label="虚拟设备ID" width="180" show-overflow-tooltip />
-        <el-table-column prop="bundleId" label="当前版本" width="120" show-overflow-tooltip />
-        <el-table-column prop="fcmToken" label="FCM Token" width="200" show-overflow-tooltip />
+        <el-table-column prop="realDeviceId" label="真实设备ID" width="180" show-overflow-tooltip/>
+        <el-table-column prop="virtualDeviceId" label="虚拟设备ID" width="180" show-overflow-tooltip/>
+        <el-table-column prop="bundleId" label="当前版本" width="120" show-overflow-tooltip/>
+        <el-table-column prop="fcmToken" label="FCM Token" width="200" show-overflow-tooltip/>
 
         <el-table-column prop="subscribedAllUsers" label="订阅所有用户" width="120" align="center">
           <template #default="{ row }">
@@ -109,7 +109,8 @@
 
         <el-table-column prop="pushPermissionStatus" label="推送权限状态" width="120" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.pushPermissionStatus === 'granted' ? 'success' : 'warning'" size="small">
+            <el-tag :type="row.pushPermissionStatus === 'granted' ? 'success' : 'warning'"
+                    size="small">
               {{ row.pushPermissionStatus || '未知' }}
             </el-tag>
           </template>
@@ -117,7 +118,8 @@
 
         <el-table-column prop="contactsPermissionStatus" label="通讯录权限状态" width="120" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.contactsPermissionStatus === 'granted' ? 'success' : 'warning'" size="small">
+            <el-tag :type="row.contactsPermissionStatus === 'granted' ? 'success' : 'warning'"
+                    size="small">
               {{ row.contactsPermissionStatus || '未知' }}
             </el-tag>
           </template>
@@ -151,9 +153,11 @@
         <el-table-column label="操作" width="100" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+            <el-button type="success" link size="small" @click="handlePush(row)">推送</el-button>
           </template>
         </el-table-column>
       </el-table>
+
 
       <!-- 📄 分页 -->
       <el-pagination
@@ -168,6 +172,34 @@
       />
     </el-card>
 
+    <!-- ✏️ 新增广播 / 发给僵尸号 统一对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="pushTitle"
+      width="520px"
+      :close-on-click-modal="false"
+      @close="handleDialogClose"
+    >
+      <el-form ref="formRef" :model="form" :rules="formRules" label-width="100px">
+        <el-form-item label="推送标题" prop="notificationTitle">
+          <el-input v-model="form.notificationTitle" placeholder="请输入推送标题" clearable/>
+        </el-form-item>
+        <el-form-item label="推送内容" prop="notificationContent">
+          <el-input v-model="form.notificationContent" type="textarea" :rows="3"
+                    placeholder="请输入推送内容" clearable/>
+        </el-form-item>
+        <el-form-item label="点击动作" prop="clickAction">
+          <el-input v-model="form.clickAction" placeholder="请输入点击跳转链接或动作标识" clearable/>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!--  JSON 美化查看对话框 (使用 vue-json-pretty) -->
     <el-dialog
       v-model="jsonDialogVisible"
@@ -177,7 +209,9 @@
       destroy-on-close
     >
       <div v-if="jsonParseError" class="json-error">
-        <el-icon color="#f56c6c"><WarningFilled /></el-icon>
+        <el-icon color="#f56c6c">
+          <WarningFilled/>
+        </el-icon>
         {{ jsonParseError }}
       </div>
 
@@ -200,11 +234,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, WarningFilled, Delete } from '@element-plus/icons-vue'
+import {ref, reactive, onMounted} from 'vue'
+import {ElMessage, ElMessageBox} from 'element-plus'
+import {Search, Refresh, WarningFilled, Delete} from '@element-plus/icons-vue'
 import request from '@/utils/request'
-import { getDictOptions, getDictLabel } from '@/utils/dict'
+import {getDictOptions, getDictLabel} from '@/utils/dict'
 // ✅ 导入 vue-json-pretty
 import VueJsonPretty from 'vue-json-pretty'
 import 'vue-json-pretty/lib/styles.css'
@@ -237,6 +271,47 @@ const jsonDialogVisible = ref(false)
 const parsedJson = ref(null)
 const jsonParseError = ref('')
 
+const dialogVisible = ref(false)
+const form = reactive({
+  notificationTitle: '',
+  notificationContent: '',
+  clickAction: '',
+  id: null
+})
+const formRules = {
+  notificationTitle: [{required: true, message: '请输入推送标题', trigger: 'blur'}],
+  notificationContent: [{required: true, message: '请输入推送内容', trigger: 'blur'}],
+  clickAction: [{required: true, message: '请输入点击动作', trigger: 'blur'}]
+}
+const formRef = ref()
+const submitLoading = ref(false)
+const pushTitle = ref('')
+
+const handlePush = (row) => {
+  form.id = row.id
+  pushTitle.value = '推送给：' + row.username
+  Object.assign(form, {notificationTitle: '', notificationContent: '', clickAction: ''})
+  dialogVisible.value = true
+  setTimeout(() => formRef.value?.clearValidate(), 100)
+}
+
+// 💾 提交表单
+const handleSubmit = () => {
+  if (!formRef.value) return
+  formRef.value.validate(async (valid) => {
+    if (!valid) return
+    submitLoading.value = true
+    try {
+      await request.post('/hwdDevice/push.do', {...form})
+      dialogVisible.value = false
+    } catch (error) {
+      ElMessage.error('操作失败：' + (error.message || '未知错误'))
+    } finally {
+      submitLoading.value = false
+    }
+  })
+}
+
 // ✅ 多选变更处理
 const handleSelectionChange = (selection) => {
   multipleSelection.value = selection
@@ -254,13 +329,14 @@ const handleDelete = (row) => {
     }
   ).then(async () => {
     try {
-      await request.post('/hwdDevice/delete.do', { id: row.id })
+      await request.post('/hwdDevice/delete.do', {id: row.id})
       ElMessage.success('删除成功')
       handleQuery()
     } catch (error) {
       ElMessage.error('删除失败：' + (error.message || '未知错误'))
     }
-  }).catch(() => {})
+  }).catch(() => {
+  })
 }
 
 // 🗑️ 批量删除
@@ -283,14 +359,15 @@ const handleBatchDelete = () => {
     }
   ).then(async () => {
     try {
-      await request.post('/hwdDevice/batchDelete.do', { ids })
+      await request.post('/hwdDevice/batchDelete.do', {ids})
       ElMessage.success(`成功删除 ${ids.length} 条记录`)
       multipleSelection.value = [] // 清空选中
       handleQuery()
     } catch (error) {
       ElMessage.error('批量删除失败：' + (error.message || '未知错误'))
     }
-  }).catch(() => {})
+  }).catch(() => {
+  })
 }
 
 // 🔗 打开 JSON 对话框
@@ -341,23 +418,58 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.hwd-device-container { padding: 20px; }
-.search-card { margin-bottom: 20px; :deep(.el-card__body) { padding: 20px; } }
-.table-card {
-  :deep(.el-card__body) { padding: 20px; }
-  .card-header {
-    display: flex; justify-content: space-between; align-items: center;
-    .title { font-size: 16px; font-weight: bold; color: #303133; }
+.hwd-device-container {
+  padding: 20px;
+}
+
+.search-card {
+  margin-bottom: 20px;
+
+  :deep(.el-card__body) {
+    padding: 20px;
   }
 }
-.search-buttons { display: flex; gap: 10px; justify-content: flex-end; width: 100%; }
-.no-data { color: #c0c4cc; font-size: 12px; }
+
+.table-card {
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #303133;
+    }
+  }
+}
+
+.search-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.no-data {
+  color: #c0c4cc;
+  font-size: 12px;
+}
 
 /* 🌳 JSON Viewer 样式 */
 .json-error {
-  display: flex; align-items: center; gap: 8px;
-  color: #f56c6c; font-size: 14px; padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #f56c6c;
+  font-size: 14px;
+  padding: 12px;
 }
+
 .json-viewer-wrapper {
   max-height: 60vh;
   overflow-y: auto;
@@ -370,17 +482,40 @@ onMounted(() => {
   font-size: 13px;
   line-height: 1.6;
 }
-:deep(.jv-key) { color: #9cdcfe; }
-:deep(.jv-string) { color: #ce9178; }
-:deep(.jv-number) { color: #b5cea8; }
-:deep(.jv-boolean) { color: #569cd6; }
-:deep(.jv-null) { color: #569cd6; }
-:deep(.jv-item) { margin-left: 20px; }
+
+:deep(.jv-key) {
+  color: #9cdcfe;
+}
+
+:deep(.jv-string) {
+  color: #ce9178;
+}
+
+:deep(.jv-number) {
+  color: #b5cea8;
+}
+
+:deep(.jv-boolean) {
+  color: #569cd6;
+}
+
+:deep(.jv-null) {
+  color: #569cd6;
+}
+
+:deep(.jv-item) {
+  margin-left: 20px;
+}
+
 :deep(.jv-toggle) {
   cursor: pointer;
   color: #808080;
-  &:hover { color: #409eff; }
+
+  &:hover {
+    color: #409eff;
+  }
 }
+
 :deep(.jv-copy-btn) {
   background: #333;
   color: #fff;
@@ -388,6 +523,9 @@ onMounted(() => {
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
-  &:hover { background: #444; }
+
+  &:hover {
+    background: #444;
+  }
 }
 </style>
