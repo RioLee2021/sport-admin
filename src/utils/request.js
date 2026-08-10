@@ -5,7 +5,7 @@ import { useUserStore } from '@/stores/user'
 
 const service = axios.create({
   baseURL: import.meta.env.VITE_BASE_URL || '/api',
-  timeout: 30000
+  timeout: 300000
 })
 
 service.interceptors.request.use(config => {
