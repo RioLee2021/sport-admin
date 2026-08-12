@@ -1,5 +1,45 @@
 <template>
   <div class="card-asset-container">
+    <!-- 合计数据统计区域 -->
+    <el-row :gutter="20" class="sts-card-row">
+      <el-col :span="6">
+        <el-card shadow="hover" class="sts-card">
+          <el-statistic title="今日人数" :value="stsData.todayMembers || 0">
+            <template #prefix>
+              <el-icon color="#409EFF"><User /></el-icon>
+            </template>
+          </el-statistic>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="sts-card">
+          <el-statistic title="昨日人数" :value="stsData.yesterdayMembers || 0">
+            <template #prefix>
+              <el-icon color="#67C23A"><User /></el-icon>
+            </template>
+          </el-statistic>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="sts-card">
+          <el-statistic title="本周人数" :value="stsData.weeklyMembers || 0">
+            <template #prefix>
+              <el-icon color="#E6A23C"><User /></el-icon>
+            </template>
+          </el-statistic>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="sts-card">
+          <el-statistic title="本月人数" :value="stsData.monthlyMembers || 0">
+            <template #prefix>
+              <el-icon color="#F56C6C"><User /></el-icon>
+            </template>
+          </el-statistic>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <!-- 搜索区域 -->
     <el-card class="search-card" shadow="never">
       <el-form :model="searchForm" inline label-width="120px">
@@ -122,7 +162,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Refresh, Edit } from '@element-plus/icons-vue'
+import { Search, Refresh, Edit, User } from '@element-plus/icons-vue'
 import request from '@/utils/request' // ⚠️ 请根据实际路径调整
 import { formatDateTime } from '@/utils/format' // ⚠️ 请根据实际路径调整
 
@@ -136,11 +176,30 @@ const searchForm = reactive({
 })
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
 
+// 🔑 新增：合计数据状态
+const stsData = ref({
+  todayMembers: 0,
+  yesterdayMembers: 0,
+  weeklyMembers: 0,
+  monthlyMembers: 0
+})
+
 // ================= 辅助函数 =================
 // 兼容后端 disabled 字段可能是 boolean 或 0/1 数字/字符串的情况
 const isDisabled = (val) => val === 1 || val === '1' || val === true
 
 // ================= 核心列表方法 =================
+// 🔑 新增：获取合计数据
+const fetchStsData = async () => {
+  try {
+    const res = await request.post('/cardAsset/stsData.do', {})
+    // 兼容外层包 data 的情况
+    stsData.value = res.data || res || {}
+  } catch (e) {
+    console.error('获取合计数据失败:', e)
+  }
+}
+
 const fetchData = async () => {
   loading.value = true
   try {
@@ -154,10 +213,11 @@ const fetchData = async () => {
     if (!params.phoneNumber) delete params.phoneNumber
     if (params.freeTimes === undefined || params.freeTimes === null) delete params.freeTimes
 
-    // 严格使用接口返回结构 res.list 和 res.total
+    // 严格使用接口返回结构，兼容外层包 data 的情况
     const res = await request.post('/cardAsset/page.do', params)
-    tableData.value = res.data.list || []
-    pagination.total = res.data.total || 0
+    const pageData = res.data || res
+    tableData.value = pageData.list || []
+    pagination.total = pageData.total || 0
   } catch (e) {
     console.error(e)
   } finally {
@@ -220,6 +280,7 @@ const submitChange = async () => {
 
 // ================= 生命周期 =================
 onMounted(() => {
+  fetchStsData() // 页面加载时获取合计数据
   fetchData()
 })
 </script>
@@ -227,6 +288,34 @@ onMounted(() => {
 <style scoped lang="scss">
 .card-asset-container {
   padding: 20px;
+
+  // 🔑 新增：统计卡片样式
+  .sts-card-row {
+    margin-bottom: 20px;
+
+    .sts-card {
+      text-align: center;
+      border-radius: 8px;
+      transition: all 0.3s;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      :deep(.el-statistic__head) {
+        font-size: 14px;
+        color: #606266;
+        margin-bottom: 8px;
+      }
+
+      :deep(.el-statistic__content) {
+        font-size: 28px;
+        font-weight: bold;
+        color: #303133;
+      }
+    }
+  }
 
   .search-card { margin-bottom: 16px; }
 

@@ -1,5 +1,53 @@
 <template>
   <div class="card-market-container">
+    <!-- 统计数据区域 -->
+    <el-row :gutter="20" class="sts-card-row">
+      <el-col :span="12">
+        <el-card shadow="hover" class="sts-card">
+          <div class="sts-title">
+            <el-icon color="#409EFF"><ShoppingCart /></el-icon>
+            <span>出售统计 (人数)</span>
+          </div>
+          <el-row :gutter="20" class="sts-content">
+            <el-col :span="6">
+              <el-statistic title="今日" :value="sellSts.todayMembers || 0" />
+            </el-col>
+            <el-col :span="6">
+              <el-statistic title="昨日" :value="sellSts.yesterdayMembers || 0" />
+            </el-col>
+            <el-col :span="6">
+              <el-statistic title="本周" :value="sellSts.weeklyMembers || 0" />
+            </el-col>
+            <el-col :span="6">
+              <el-statistic title="本月" :value="sellSts.monthlyMembers || 0" />
+            </el-col>
+          </el-row>
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card shadow="hover" class="sts-card">
+          <div class="sts-title">
+            <el-icon color="#67C23A"><TrendCharts /></el-icon>
+            <span>成交统计 (笔数)</span>
+          </div>
+          <el-row :gutter="20" class="sts-content">
+            <el-col :span="6">
+              <el-statistic title="今日" :value="dealSts.todayTimes || 0" />
+            </el-col>
+            <el-col :span="6">
+              <el-statistic title="昨日" :value="dealSts.yesterdayTimes || 0" />
+            </el-col>
+            <el-col :span="6">
+              <el-statistic title="本周" :value="dealSts.weeklyTimes || 0" />
+            </el-col>
+            <el-col :span="6">
+              <el-statistic title="本月" :value="dealSts.monthlyTimes || 0" />
+            </el-col>
+          </el-row>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <!-- 搜索区域 -->
     <el-card class="search-card" shadow="never">
       <el-form :model="searchForm" inline label-width="90px">
@@ -37,6 +85,16 @@
             <el-option label="未成交" :value="false" />
           </el-select>
         </el-form-item>
+        <!-- 🔑 新增：多少天之前查询条件 -->
+        <el-form-item label="多少天前">
+          <el-input-number
+            v-model="searchForm.daysAgo"
+            placeholder="天数"
+            :min="0"
+            controls-position="right"
+            style="width: 180px;"
+          />
+        </el-form-item>
 
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
@@ -47,6 +105,17 @@
 
     <!-- 数据表格区域 -->
     <el-card class="table-card" shadow="never">
+      <template #header>
+        <div class="card-header">
+          <span>卡片市场列表</span>
+          <div>
+            <!-- 🔑 新增：批量操作按钮 -->
+            <el-button type="success" :icon="ShoppingCart" @click="handleBuyAll">全部购买</el-button>
+            <el-button type="danger" :icon="Close" @click="handleCancelAll">全部取消</el-button>
+          </div>
+        </div>
+      </template>
+
       <el-table v-loading="loading" :data="tableData" border stripe style="width: 100%">
         <el-table-column prop="buyer" label="买家账号" min-width="120" show-overflow-tooltip />
         <el-table-column prop="seller" label="卖家账号" min-width="120" show-overflow-tooltip />
@@ -117,7 +186,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search, Refresh, ShoppingCart, TrendCharts, Close } from '@element-plus/icons-vue'
 import request from '@/utils/request' // ⚠️ 请根据实际路径调整
 import { formatDateTime } from '@/utils/format' // ⚠️ 请根据实际路径调整
 
@@ -137,16 +206,21 @@ const searchForm = reactive({
   cardLevel: '',
   cardSeries: '',
   cardName: '',
-  dealFlag: undefined
+  dealFlag: undefined,
+  daysAgo: undefined // 🔑 新增：多少天之前
 })
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
+
+// ================= 统计数据状态 =================
+const sellSts = ref({ todayMembers: 0, yesterdayMembers: 0, weeklyMembers: 0, monthlyMembers: 0 })
+const dealSts = ref({ todayTimes: 0, yesterdayTimes: 0, weeklyTimes: 0, monthlyTimes: 0 })
 
 // ================= 核心列表方法 =================
 const fetchData = async () => {
   loading.value = true
   try {
-    // 过滤空值
     const params = { page: pagination.page, pageSize: pagination.pageSize, ...searchForm }
+    // 过滤空值
     Object.keys(params).forEach(key => {
       if (params[key] === '' || params[key] === undefined || params[key] === null) {
         delete params[key]
@@ -154,9 +228,6 @@ const fetchData = async () => {
     })
 
     const res = await request.post('/cardMarket/page.do', params)
-
-    // 🔑 核心适配：列表返回数据外层统一包一个 data
-    // 经过 request 拦截器后，res 为 { code: 200, data: { list: [], total: 0 } }
     const pageData = res.data || res
     tableData.value = pageData.list || []
     pagination.total = pageData.total || 0
@@ -167,23 +238,33 @@ const fetchData = async () => {
   }
 }
 
-// 获取卡等级下拉
+// 🔑 新增：获取统计数据
+const fetchStsData = async () => {
+  try {
+    const [sellRes, dealRes] = await Promise.all([
+      request.post('/cardMarket/sellStsData.do', {}),
+      request.post('/cardMarket/dealStsData.do', {})
+    ])
+    sellSts.value = sellRes.data || sellRes || {}
+    dealSts.value = dealRes.data || dealRes || {}
+  } catch (e) {
+    console.error('获取统计数据失败:', e)
+  }
+}
+
+// 获取下拉选项
 const fetchLevelOpts = async () => {
   try {
     const res = await request.post('/cardMarket/levelOpts.do')
     levelOpts.value = res.data || res || []
   } catch (e) { console.error(e) }
 }
-
-// 获取卡系列下拉
 const fetchSeriesOpts = async () => {
   try {
     const res = await request.post('/cardMarket/seriesOpts.do')
     seriesOpts.value = res.data || res || []
   } catch (e) { console.error(e) }
 }
-
-// 获取卡名下拉
 const fetchNameOpts = async () => {
   try {
     const res = await request.post('/cardMarket/nameOpts.do')
@@ -193,43 +274,90 @@ const fetchNameOpts = async () => {
 
 const handleSearch = () => { pagination.page = 1; fetchData() }
 const handleReset = () => {
-  Object.keys(searchForm).forEach(key => { searchForm[key] = key === 'dealFlag' ? undefined : '' })
+  Object.keys(searchForm).forEach(key => {
+    searchForm[key] = (key === 'dealFlag' || key === 'daysAgo') ? undefined : ''
+  })
   handleSearch()
 }
 const handleSizeChange = (val) => { pagination.pageSize = val; fetchData() }
 const handleCurrentChange = (val) => { pagination.page = val; fetchData() }
 
 // ================= 操作功能 =================
-// 人工购买
+// 🔑 新增：全部购买 (带当前搜索条件)
+const handleBuyAll = async () => {
+  try {
+    await ElMessageBox.confirm('确定要【全部购买】当前筛选条件下的卡片吗？此操作不可逆！', '高危操作警告', {
+      type: 'warning',
+      confirmButtonText: '确定购买',
+      cancelButtonText: '取消'
+    })
+    const params = { ...searchForm }
+    Object.keys(params).forEach(key => {
+      if (params[key] === '' || params[key] === undefined || params[key] === null) delete params[key]
+    })
+    await request.post('/cardMarket/buyAll.do', params)
+    ElMessage.success('全部购买操作已提交')
+    fetchData()
+    fetchStsData()
+  } catch (e) {
+    if (e !== 'cancel') console.error(e)
+  }
+}
+
+// 🔑 新增：全部取消 (带当前搜索条件)
+const handleCancelAll = async () => {
+  try {
+    await ElMessageBox.confirm('确定要【全部取消】当前筛选条件下的交易吗？此操作不可逆！', '高危操作警告', {
+      type: 'warning',
+      confirmButtonText: '确定取消',
+      cancelButtonText: '取消'
+    })
+    const params = { ...searchForm }
+    Object.keys(params).forEach(key => {
+      if (params[key] === '' || params[key] === undefined || params[key] === null) delete params[key]
+    })
+    await request.post('/cardMarket/cancelAll.do', params)
+    ElMessage.success('全部取消操作已提交')
+    fetchData()
+    fetchStsData()
+  } catch (e) {
+    if (e !== 'cancel') console.error(e)
+  }
+}
+
+// 单条人工购买
 const handleManualBuy = async (row) => {
   try {
     await ElMessageBox.confirm('确定要执行【人工购买】操作吗？', '提示', { type: 'warning' })
     await request.post('/cardMarket/manualBuy.do', { id: row.id })
     ElMessage.success('操作成功')
     fetchData()
+    fetchStsData()
   } catch (e) {
     if (e !== 'cancel') console.error(e)
   }
 }
 
-// 切换成交状态
+// 单条切换成交状态
 const handleToggleDeal = async (row) => {
   try {
     await ElMessageBox.confirm(`确定要【切换成交状态】吗？当前状态：${row.dealFlag ? '已成交' : '未成交'}`, '提示', { type: 'warning' })
     await request.post('/cardMarket/toggleDeal.do', { id: row.id })
     ElMessage.success('操作成功')
     fetchData()
+    fetchStsData()
   } catch (e) {
     if (e !== 'cancel') console.error(e)
   }
 }
 
-// 人工取消
+// 单条人工取消
 const handleManualCancel = async (row) => {
   try {
     await request.post('/cardMarket/manualCancel.do', { id: row.id })
     ElMessage.success('取消成功')
     fetchData()
+    fetchStsData()
   } catch (e) {
     console.error(e)
   }
@@ -237,6 +365,7 @@ const handleManualCancel = async (row) => {
 
 // ================= 生命周期 =================
 onMounted(() => {
+  fetchStsData()
   fetchData()
   fetchLevelOpts()
   fetchSeriesOpts()
@@ -248,9 +377,53 @@ onMounted(() => {
 .card-market-container {
   padding: 20px;
 
+  .sts-card-row {
+    margin-bottom: 20px;
+
+    .sts-card {
+      border-radius: 8px;
+      transition: all 0.3s;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      .sts-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        color: #303133;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #ebeef5;
+      }
+
+      .sts-content {
+        :deep(.el-statistic__head) {
+          font-size: 13px;
+          color: #909399;
+          margin-bottom: 4px;
+        }
+        :deep(.el-statistic__content) {
+          font-size: 24px;
+          font-weight: bold;
+          color: #303133;
+        }
+      }
+    }
+  }
+
   .search-card { margin-bottom: 16px; }
 
   .table-card {
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
     .pagination-container {
       margin-top: 20px;
       display: flex;
