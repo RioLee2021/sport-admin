@@ -33,7 +33,11 @@
             <el-tag>{{ getDictLabel('PrizeType', row.prizeType) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="probability" label="中奖概率" width="120" align="center" />
+        <el-table-column prop="probability" label="中奖概率" width="100" align="center">
+          <template #default="{ row }">
+            {{ (row.probability / 1000).toFixed(2) }}%
+          </template>
+        </el-table-column>
         <el-table-column prop="picUrl" label="奖品图片" width="100" align="center">
           <template #default="{ row }">
             <el-image
@@ -79,8 +83,11 @@
             <el-option v-for="item in prizeTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
+        <el-form-item label="国际化代码" prop="prizeParam">
+          <el-input v-model="editForm.i18nCode" placeholder="请输入国际化代码" />
+        </el-form-item>
         <el-form-item label="中奖概率" prop="probability">
-          <el-input-number v-model="editForm.probability" :min="0" :max="100" style="width: 100%;" />
+          <el-input-number v-model="editForm.probability" :min="0" style="width: 100%;" />
         </el-form-item>
         <el-form-item label="奖品图片" prop="picUrl">
           <el-upload
@@ -230,9 +237,9 @@ const uploadHeaders = computed(() => ({
 // ================= 辅助函数 =================
 const beforeUpload = (file) => {
   const isImage = file.type.startsWith('image/')
-  const isLt2M = file.size / 1024 / 1024 < 2
+  const isLt2M = file.size / 1024 / 1024 < 5
   if (!isImage) ElMessage.error('只能上传图片文件!')
-  if (!isLt2M) ElMessage.error('图片大小不能超过 2MB!')
+  if (!isLt2M) ElMessage.error('图片大小不能超过 5MB!')
   return isImage && isLt2M
 }
 
@@ -296,6 +303,7 @@ const handleReset = () => {
 const openEditDialog = (row) => {
   Object.assign(editForm, {
     id: row.id,
+    itemNum: row.itemNum,
     i18nCode: row.i18nCode,
     picUrl: row.picUrl,
     prizeParam: row.prizeParam,
