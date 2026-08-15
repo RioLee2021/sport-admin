@@ -35,7 +35,7 @@
         </el-table-column>
         <el-table-column prop="probability" label="中奖概率" width="100" align="center">
           <template #default="{ row }">
-            {{ (row.probability / 1000).toFixed(2) }}%
+            {{ (row.probability / 10).toFixed(2) }}%
           </template>
         </el-table-column>
         <el-table-column prop="picUrl" label="奖品图片" width="100" align="center">
