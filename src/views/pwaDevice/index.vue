@@ -101,8 +101,9 @@
         </el-table-column>
 
         <!-- ✅ 操作列固定在右侧 -->
-        <el-table-column label="操作" width="100" align="center" fixed="right">
+        <el-table-column label="操作" width="160" align="center" fixed="right">
           <template #default="{ row }">
+            <el-button type="primary" link size="small" :icon="Bell" @click="handlePush(row)">推送</el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -120,16 +121,52 @@
         style="margin-top: 20px; justify-content: flex-end"
       />
     </el-card>
+
+    <!-- 🔔 推送消息弹窗 -->
+    <el-dialog
+      v-model="pushDialogVisible"
+      title="推送消息"
+      width="500px"
+      destroy-on-close
+    >
+      <el-form
+        ref="pushFormRef"
+        :model="pushForm"
+        :rules="pushFormRules"
+        label-width="100px"
+      >
+        <el-form-item label="标题" prop="title">
+          <el-input v-model="pushForm.title" placeholder="请输入推送标题" maxlength="50" show-word-limit />
+        </el-form-item>
+        <el-form-item label="内容" prop="body">
+          <el-input
+            v-model="pushForm.body"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入推送内容"
+            maxlength="200"
+            show-word-limit
+          />
+        </el-form-item>
+        <el-form-item label="跳转链接" prop="targetUrl">
+          <el-input v-model="pushForm.targetUrl" placeholder="请输入点击通知后的跳转链接" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="pushDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="pushLoading" @click="submitPush">确定推送</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search, Refresh, Bell } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
-//  表格状态
+// 📋 表格状态
 const tableData = ref([])
 const loading = ref(false)
 
@@ -149,6 +186,23 @@ const pagination = reactive({
 })
 
 const queryFormRef = ref()
+
+// 🔔 推送弹窗状态
+const pushDialogVisible = ref(false)
+const pushLoading = ref(false)
+const pushFormRef = ref()
+const pushForm = reactive({
+  id: null,
+  title: '',
+  body: '',
+  targetUrl: ''
+})
+
+const pushFormRules = {
+  title: [{ required: true, message: '请输入推送标题', trigger: 'blur' }],
+  body: [{ required: true, message: '请输入推送内容', trigger: 'blur' }],
+  targetUrl: [{ required: true, message: '请输入跳转链接', trigger: 'blur' }]
+}
 
 /** 🏷️ 获取权限状态标签类型 */
 const getPermissionStatusTag = (status) => {
@@ -187,6 +241,46 @@ const handleReset = () => {
   queryFormRef.value?.resetFields()
   pagination.page = 1
   handleQuery()
+}
+
+/** 🔔 打开推送弹窗 */
+const handlePush = (row) => {
+  pushForm.id = row.id
+  pushForm.title = ''
+  pushForm.body = ''
+  pushForm.targetUrl = ''
+  pushDialogVisible.value = true
+
+  // 清除之前的校验状态
+  if (pushFormRef.value) {
+    pushFormRef.value.clearValidate()
+  }
+}
+
+/** 🚀 提交推送 */
+const submitPush = async () => {
+  if (!pushFormRef.value) return
+
+  await pushFormRef.value.validate(async (valid) => {
+    if (valid) {
+      pushLoading.value = true
+      try {
+        // 严格按照 Swagger 的 PwaPushOneForm 结构提交
+        await request.post('/pwaDevice/push.do', {
+          id: pushForm.id,
+          title: pushForm.title,
+          body: pushForm.body,
+          targetUrl: pushForm.targetUrl
+        })
+        ElMessage.success('推送成功')
+        pushDialogVisible.value = false
+      } catch (error) {
+        ElMessage.error('推送失败：' + (error.message || '未知错误'))
+      } finally {
+        pushLoading.value = false
+      }
+    }
+  })
 }
 
 /** 🗑️ 删除设备 */

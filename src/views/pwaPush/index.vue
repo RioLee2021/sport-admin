@@ -51,8 +51,8 @@
         <el-table-column prop="body" label="内容" min-width="200" show-overflow-tooltip />
         <el-table-column prop="targetUrl" label="目标URL" min-width="180" show-overflow-tooltip />
 
-        <el-table-column prop="totalCnt" label="推送总数" width="100" align="center" />
-        <el-table-column prop="succeedCnt" label="成功数" width="90" align="center">
+        <el-table-column prop="totalCnt" label="到达数" width="100" align="center" />
+        <el-table-column prop="succeedCnt" label="点击数" width="90" align="center">
           <template #default="{ row }">
             <span class="text-success">{{ row.succeedCnt }}</span>
           </template>
@@ -149,8 +149,8 @@
         <el-descriptions-item label="标题" :span="2">{{ currentDetail.title }}</el-descriptions-item>
         <el-descriptions-item label="内容" :span="2">{{ currentDetail.body }}</el-descriptions-item>
         <el-descriptions-item label="目标URL" :span="2">{{ currentDetail.targetUrl }}</el-descriptions-item>
-        <el-descriptions-item label="推送总数">{{ currentDetail.totalCnt }}</el-descriptions-item>
-        <el-descriptions-item label="成功数">
+        <el-descriptions-item label="到达数">{{ currentDetail.totalCnt }}</el-descriptions-item>
+        <el-descriptions-item label="点击数">
           <span class="text-success">{{ currentDetail.succeedCnt }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="失败数">
@@ -160,7 +160,7 @@
           <span class="text-warning">{{ currentDetail.errorCnt }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="耗时(秒)">{{ currentDetail.costTime }}</el-descriptions-item>
-        <el-descriptions-item label="错误信息" :span="2">{{ currentDetail.exprText || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="信息" :span="2">{{ currentDetail.exprText || '-' }}</el-descriptions-item>
         <el-descriptions-item label="创建人">{{ currentDetail.createBy }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ $formatDateTime(currentDetail.createAt) }}</el-descriptions-item>
         <el-descriptions-item label="状态" :span="2">
