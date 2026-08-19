@@ -39,9 +39,7 @@
           </el-col>
           <el-col :span="6">
             <el-form-item label="会员ID" prop="id">
-              <el-select v-model="queryParams.id" placeholder="请选择" clearable style="width: 100%; min-width: 120px">
-                <el-input v-model="queryParams.id" placeholder="请输入邀请码" clearable @keyup.enter="handleQuery" />
-              </el-select>
+              <el-input v-model="queryParams.id" placeholder="会员ID" clearable @keyup.enter="handleQuery" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
