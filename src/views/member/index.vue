@@ -37,6 +37,13 @@
               </el-select>
             </el-form-item>
           </el-col>
+          <el-col :span="6">
+            <el-form-item label="会员ID" prop="id">
+              <el-select v-model="queryParams.id" placeholder="请选择" clearable style="width: 100%; min-width: 120px">
+                <el-input v-model="queryParams.id" placeholder="请输入邀请码" clearable @keyup.enter="handleQuery" />
+              </el-select>
+            </el-form-item>
+          </el-col>
           <el-col :span="24">
             <div class="search-buttons">
               <el-button type="primary" :icon="Search" @click="handleQuery">查询</el-button>
@@ -244,7 +251,7 @@ const loading = ref(false)
 const resetLoadingMap = ref({}) // 记录每行重置按钮 loading 状态
 
 // 🔍 查询参数
-const queryParams = reactive({ username: undefined, phoneNumber: undefined, level: undefined, stat: undefined,shareCode:undefined, page: 1, pageSize: 10 })
+const queryParams = reactive({ id:undefined,username: undefined, phoneNumber: undefined, level: undefined, stat: undefined,shareCode:undefined, page: 1, pageSize: 10 })
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
 const queryFormRef = ref()
 
@@ -315,6 +322,7 @@ const handleQuery = async () => {
       level: queryParams.level || undefined,
       stat: queryParams.stat || undefined,
       shareCode: queryParams.shareCode || undefined,
+      id: queryParams.id || undefined,
       page: pagination.page,
       pageSize: pagination.pageSize
     }
