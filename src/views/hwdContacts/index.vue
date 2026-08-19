@@ -35,7 +35,10 @@
       <template #header>
         <div class="card-header">
           <span class="title">通讯录列表</span>
-          <el-button type="primary"  @click="handleFormatNumber">压缩并导出</el-button>
+          <div>
+            <el-button type="primary"  @click="handleFormatNumber">压缩并导出</el-button>
+            <el-button type="danger"  @click="handleClearTask">重置并清除</el-button>
+          </div>
         </div>
       </template>
 
@@ -116,6 +119,28 @@
         <el-button @click="jsonDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <!-- 🚀 导出进度弹窗 -->
+    <el-dialog
+      v-model="exportDialogVisible"
+      title="正在生成压缩包..."
+      width="400px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="false"
+      align-center
+    >
+      <div style="text-align: center; padding: 20px 0;">
+        <el-progress
+          type="circle"
+          :percentage="exportPercentage"
+          :status="exportStatus"
+        />
+        <p style="margin-top: 15px; color: #606266;">
+          {{ exportStatusText }}
+        </p>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -128,6 +153,100 @@ import request from '@/utils/request'
 // ✅ 导入 JSON 查看器组件
 import VueJsonPretty from 'vue-json-pretty'
 import 'vue-json-pretty/lib/styles.css'
+
+// 🚀 导出进度控制相关状态
+const exportDialogVisible = ref(false)
+const exportPercentage = ref(0)
+const exportStatus = ref('') // '' | 'success' | 'exception'
+const exportStatusText = ref('正在准备导出数据...')
+let timer = null // 定时器句柄
+
+const handleClearTask = () => {
+  request.post('/hwdContacts/clearTask.do',{}).then(ElMessage.success('清除成功'))
+}
+
+// 导出压缩包入口
+const handleFormatNumber = async () => {
+  try {
+    // 1. 初始化弹窗与进度
+    exportPercentage.value = 0
+    exportStatus.value = ''
+    exportStatusText.value = '正在初始化导出任务...'
+    exportDialogVisible.value = true
+
+    // 2. 发起导出任务请求，获取 taskId
+    const res = await request.post('/hwdContacts/exportTask.do', {})
+    const taskId = res.data // 假设后台返回的 data 就是 taskId
+
+    if (!taskId) {
+      throw new Error('未获取到任务ID')
+    }
+
+    // 3. 开启轮询，每 1 秒查询一次进度
+    timer = setInterval(async () => {
+      try {
+        const progressRes = await request.get(`/hwdContacts/getExportProgress.do?taskId=${taskId}`)
+        const taskInfo = progressRes.data
+
+        if (taskInfo) {
+          exportPercentage.value = taskInfo.progress
+          exportStatusText.value = `数据打包中... ${taskInfo.progress}%`
+
+          // 判断任务状态
+          if (taskInfo.status === 'SUCCESS') {
+            clearInterval(timer)
+            exportStatus.value = 'success'
+            exportStatusText.value = '打包完成，准备开始下载...'
+
+            // 延时 0.5s 让用户看到 100% 状态
+            setTimeout(() => {
+              triggerDownload(taskId)
+              exportDialogVisible.value = false
+            }, 500)
+          } else if (taskInfo.status === 'FAILED') {
+            clearInterval(timer)
+            exportStatus.value = 'exception'
+            exportStatusText.value = '导出失败：' + (taskInfo.errorMsg || '服务端发生错误')
+            setTimeout(() => {
+              exportDialogVisible.value = false
+            }, 2000)
+          }
+        }
+      } catch (err) {
+        clearInterval(timer)
+        exportDialogVisible.value = false
+        ElMessage.error('查询导出进度失败：' + err.message)
+      }
+    }, 1000)
+
+  } catch (error) {
+    exportDialogVisible.value = false
+    ElMessage.error('创建导出任务失败：' + (error.message || '未知错误'))
+  }
+}
+
+// 4. 触发二进制流下载
+const triggerDownload = (taskId) => {
+  request({
+    url: `/hwdContacts/downloadExport.do?taskId=${taskId}`,
+    method: 'get',
+    responseType: 'blob' // 注意你的 request.js 中对 blob 有专门逻辑
+  }).then(res => {
+    // 创建隐藏的 <a> 标签触发浏览器下载
+    const blob = new Blob([res.data], { type: 'application/zip' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `通讯录导出数据_${new Date().getTime()}.zip`
+    document.body.appendChild(link)
+    link.click()
+    URL.revokeObjectURL(link.href)
+    document.body.removeChild(link)
+
+    ElMessage.success('下载成功！')
+  }).catch(err => {
+    ElMessage.error('文件下载失败：' + (err.message || '未知错误'))
+  })
+}
 
 // 📊 表格状态
 const tableData = ref([])
@@ -192,14 +311,6 @@ const openJsonDialog = (jsonStr) => {
     jsonParseError.value = 'JSON 格式解析失败，请检查数据完整性'
     jsonDialogVisible.value = true
   }
-}
-
-const handleFormatNumber = () =>{
-  request.post('/hwdContacts/formatNumber.do', {}).then(res=>{
-    ElMessage.success('格式化成功')
-  }).catch(err=>{
-    ElMessage.error('格式化失败：' + (err.message || '未知错误'))
-  })
 }
 
 onMounted(() => {
