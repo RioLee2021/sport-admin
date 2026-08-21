@@ -62,7 +62,7 @@
       </template>
 
       <el-table v-loading="loading" :data="tableData" border stripe style="width: 100%">
-        <el-table-column label="最后活跃时间" width="180" align="lastActivityTime">
+        <el-table-column label="最后活跃时间" width="160" align="lastActivityTime">
           <template #default="{row}">{{$formatDateTime(row.lastActivityTime)}}</template>
         </el-table-column>
         <el-table-column label="账号" prop="username" width="120" align="center" />
@@ -81,10 +81,12 @@
         <el-table-column label="创建时间" prop="createAt" width="180" align="center">
           <template #default="{ row }">{{ $formatDateTime(row.createAt) }}</template>
         </el-table-column>
+        <el-table-column label="备注" prop="createBy" width="160" align="center" />
         <el-table-column label="操作" width="280" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="warning" link size="small" :loading="resetLoadingMap[row.id]" @click="handleResetPassword(row)">重置密码</el-button>
+            <el-button type="danger" link size="small"  @click="handleKickMember(row)">踢下线</el-button>
             <!-- ✅ 新增：加减款按钮 -->
             <el-button type="success" link size="small" @click="openCoinDialog(row)">加减款</el-button>
           </template>
@@ -403,6 +405,15 @@ const handleResetPassword = async (row) => {
     if (e !== 'cancel') ElMessage.error('重置失败：' + (e.message || '未知错误'))
   } finally {
     resetLoadingMap.value[row.id] = false
+  }
+}
+
+const handleKickMember = async (row) => {
+  try {
+    await ElMessageBox.confirm(`确定要踢会员 "${row.username}" 的下线吗？`, '提示', {type: 'warning'})
+    await request.post('/member/kickMember.do', {id: row.id})
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error('失败：' + (e.message || '未知错误'))
   }
 }
 
