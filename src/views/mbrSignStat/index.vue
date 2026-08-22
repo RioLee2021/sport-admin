@@ -98,9 +98,9 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="createAt" label="创建时间" min-width="160" align="center">
+        <el-table-column prop="createAt" label="签到时间" min-width="160" align="center">
           <template #default="{ row }">
-            {{ formatDateTime(row.createAt) }}
+            {{ formatDateTime(row.lastSignDate) }}
           </template>
         </el-table-column>
 
